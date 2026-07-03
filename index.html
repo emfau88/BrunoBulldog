@@ -1,0 +1,1641 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Bruno's Big Sniff">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Bruno's Big Sniff</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --ink: #2f2a22;
+      --cream: #fff4d5;
+      --panel: rgba(255, 247, 218, 0.92);
+      --panel-edge: #7a5839;
+      --grass: #83c66b;
+      --accent: #d96d3f;
+      --button: #f2bf54;
+      --button-dark: #9c6432;
+      --sky: #b8e3d5;
+      --shadow: rgba(44, 35, 28, 0.26);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      overflow: hidden;
+      background: var(--grass);
+      color: var(--ink);
+      font-family: ui-rounded, "Trebuchet MS", Verdana, sans-serif;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+
+    #gameWrap {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--grass);
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100dvh;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      background: var(--grass);
+    }
+
+    .hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 12px);
+    }
+
+    .topBar {
+      width: 100%;
+      justify-self: center;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: start;
+    }
+
+    .comfort, .questChip, .fullscreenBtn, .prompt, .dialog, .completeCard {
+      border: 2px solid var(--panel-edge);
+      background: var(--panel);
+      box-shadow: 0 4px 0 rgba(91, 64, 38, 0.26);
+    }
+
+    .comfort {
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 18px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .questChip {
+      min-height: 38px;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: clamp(13px, 3vw, 16px);
+      font-weight: 800;
+      line-height: 1.15;
+      justify-self: end;
+      max-width: 100%;
+    }
+
+    .fullscreenBtn {
+      appearance: none;
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 1000;
+      line-height: 1;
+      pointer-events: auto;
+      touch-action: manipulation;
+    }
+
+    .fullscreenBtn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 rgba(91, 64, 38, 0.26);
+    }
+
+    :fullscreen #gameWrap,
+    :-webkit-full-screen #gameWrap {
+      width: 100vw;
+      height: 100vh;
+      background: var(--grass);
+    }
+
+    :fullscreen canvas,
+    :-webkit-full-screen canvas {
+      border-width: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .prompt {
+      position: fixed;
+      left: 50%;
+      bottom: calc(env(safe-area-inset-bottom) + 136px);
+      transform: translateX(-50%);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 900;
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    .prompt.show { opacity: 1; }
+
+    .dialog {
+      align-self: end;
+      justify-self: center;
+      width: min(100vw - 24px, 600px);
+      min-height: 56px;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 88px;
+      font-size: 15px;
+      line-height: 1.25;
+      display: none;
+    }
+
+    .dialog.show { display: block; }
+    .dialog strong { color: #7b3f24; }
+
+    .controls {
+      position: fixed;
+      inset: auto 0 calc(env(safe-area-inset-bottom) + 16px) 0;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      width: 100%;
+      margin: 0 auto;
+      padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+      pointer-events: none;
+    }
+
+    .stick {
+      width: 116px;
+      height: 116px;
+      border-radius: 50%;
+      border: 3px solid rgba(87, 62, 43, 0.76);
+      background: rgba(255, 244, 213, 0.38);
+      box-shadow: inset 0 0 0 10px rgba(255,255,255,0.16), 0 8px 20px var(--shadow);
+      pointer-events: auto;
+      position: relative;
+    }
+
+    .nub {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 3px solid #694b33;
+      background: #f0c36c;
+      position: absolute;
+      left: 31px;
+      top: 31px;
+      box-shadow: 0 4px 0 rgba(91, 64, 38, 0.28);
+    }
+
+    .actionStack {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .action {
+      appearance: none;
+      border: 3px solid var(--button-dark);
+      border-radius: 50%;
+      width: 76px;
+      height: 76px;
+      background: var(--button);
+      color: #442b1f;
+      font-weight: 1000;
+      font-size: 13px;
+      box-shadow: 0 6px 0 rgba(91, 64, 38, 0.42);
+      touch-action: none;
+    }
+
+    .action:active, .action.down {
+      transform: translateY(4px);
+      box-shadow: 0 2px 0 rgba(91, 64, 38, 0.42);
+    }
+
+    .action.secondary {
+      width: 68px;
+      height: 68px;
+      background: #f7df83;
+      font-size: 12px;
+    }
+
+    .complete {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(61, 80, 54, 0.34);
+      pointer-events: auto;
+    }
+
+    .complete.show { display: grid; }
+
+    .completeCard {
+      width: min(92vw, 430px);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .completeCard h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.05;
+      color: #70411f;
+      letter-spacing: 0;
+    }
+
+    .completeCard p {
+      margin: 0 0 16px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .playAgain {
+      appearance: none;
+      border: 3px solid var(--button-dark);
+      border-radius: 8px;
+      padding: 10px 18px;
+      background: var(--accent);
+      color: white;
+      font-weight: 1000;
+      font-size: 16px;
+      box-shadow: 0 5px 0 rgba(91, 64, 38, 0.42);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .controls { opacity: 0.9; }
+    }
+
+    @media (max-height: 650px) {
+      .dialog { margin-bottom: 78px; min-height: 46px; font-size: 13px; }
+      .prompt { bottom: calc(env(safe-area-inset-bottom) + 118px); }
+      .stick { width: 96px; height: 96px; }
+      .nub { width: 40px; height: 40px; left: 25px; top: 25px; }
+      .action { width: 64px; height: 64px; font-size: 11px; }
+      .action.secondary { width: 58px; height: 58px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameWrap">
+    <canvas id="game" width="400" height="640" aria-label="Bruno's Big Sniff game canvas"></canvas>
+  </div>
+
+  <div class="hud" aria-hidden="true">
+    <div class="topBar">
+      <div class="comfort" id="comfort">♥ ♥ ♥</div>
+      <div class="questChip" id="questText">Find Bella in the park</div>
+      <button class="fullscreenBtn" id="fullscreenBtn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">FS</button>
+    </div>
+    <div></div>
+    <div class="dialog" id="dialog"></div>
+  </div>
+
+  <div class="prompt" id="prompt">Talk</div>
+
+  <div class="controls" aria-hidden="true">
+    <div class="stick" id="stick"><div class="nub" id="nub"></div></div>
+    <div class="actionStack">
+      <button class="action secondary" id="sniffBtn">SNIFF</button>
+      <button class="action" id="useBtn">USE</button>
+    </div>
+  </div>
+
+  <div class="complete" id="complete">
+    <div class="completeCard">
+      <h1>Quest Complete</h1>
+      <p>Bella has her golden bone back. Bruno's sniffer saved the day.</p>
+      <button class="playAgain" id="playAgain">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const questText = document.getElementById("questText");
+      const promptEl = document.getElementById("prompt");
+      const dialogEl = document.getElementById("dialog");
+      const completeEl = document.getElementById("complete");
+      const stickEl = document.getElementById("stick");
+      const nubEl = document.getElementById("nub");
+      const fullscreenBtn = document.getElementById("fullscreenBtn");
+      const sniffBtn = document.getElementById("sniffBtn");
+      const useBtn = document.getElementById("useBtn");
+      const playAgain = document.getElementById("playAgain");
+
+      const TILE = 32;
+      const MAP_W = 20;
+      const MAP_H = 32;
+      let VIEW_W = canvas.width;
+      let VIEW_H = canvas.height;
+      const WORLD_W = MAP_W * TILE;
+      const WORLD_H = MAP_H * TILE;
+      const COLORS = {
+        grass: "#7fc565",
+        grassDark: "#63a64e",
+        grassLight: "#9bd77e",
+        path: "#e9d29b",
+        pathEdge: "#cfb47b",
+        water: "#5ea3c8",
+        waterDark: "#3e7fa4",
+        fence: "#a5693d",
+        fenceDark: "#704529",
+        bush: "#3f8c4c",
+        bushLight: "#5fb766",
+        flowerPink: "#ef7d8f",
+        flowerBlue: "#698bd8",
+        houseWall: "#e8b66f",
+        roof: "#b9533b",
+        dirt: "#b77d47",
+        dark: "#2f2a22",
+        bone: "#ffd76a",
+        scent: "#ffe58a"
+      };
+
+      const assets = {
+        images: {},
+        manifest: {
+          brunoSheet: "assets/characters/bruno-sheet-stable.png",
+          bellaSheet: "assets/characters/bella-sheet-stable.png",
+          goldenBone: "assets/props/golden-bone.png",
+          scratchedSign: "assets/props/scratched-sign.png",
+          muddyPawprint: "assets/props/muddy-pawprint.png",
+          chewedStick: "assets/props/chewed-stick.png",
+          closedGate: "assets/props/closed-gate.png",
+          openGate: "assets/props/open-gate.png",
+          doghouseProp: "assets/props/doghouse.png",
+          cottageProp: "assets/props/cottage.png",
+          flowerBushProp: "assets/props/flower-bush.png",
+          crateBarrelProp: "assets/props/crate-barrel.png",
+          treeCanopy: "assets/props/tree-canopy.png",
+          parkBench: "assets/props/park-bench.png",
+          pondReeds: "assets/props/pond-reeds.png",
+          bridgeRail: "assets/props/bridge-rail.png",
+          digHoleProp: "assets/props/dig-hole.png",
+          scentSwirl: "assets/props/scent-swirl.png",
+          questMarker: "assets/props/quest-marker.png",
+          pathStones: "assets/props/path-stones.png",
+          grassTuft: "assets/props/grass-tuft.png",
+          lanternPost: "assets/props/lantern-post.png",
+          grassPlain: "assets/tiles/grass-plain.png",
+          grassBlades: "assets/tiles/grass-blades.png",
+          grassDarkTile: "assets/tiles/grass-dark.png",
+          grassFlowersTile: "assets/tiles/grass-flowers.png",
+          pathPlain: "assets/tiles/path-plain.png",
+          pathPebbles: "assets/tiles/path-pebbles.png",
+          pathGrassEdge: "assets/tiles/path-grass-edge.png",
+          pathCorner: "assets/tiles/path-corner.png",
+          waterPlain: "assets/tiles/water-plain.png",
+          waterRipple: "assets/tiles/water-ripple.png",
+          waterBank: "assets/tiles/water-bank.png",
+          waterLily: "assets/tiles/water-lily.png",
+          fenceHorizontal: "assets/tiles/fence-horizontal.png",
+          fenceVertical: "assets/tiles/fence-vertical.png",
+          fenceCorner: "assets/tiles/fence-corner.png",
+          fencePost: "assets/tiles/fence-post.png"
+        }
+      };
+
+      function loadImageAsset(key, src) {
+        const img = new Image();
+        img.onload = () => { img.ready = true; };
+        img.onerror = () => { img.failed = true; };
+        img.src = src;
+        assets.images[key] = img;
+      }
+
+      for (const [key, src] of Object.entries(assets.manifest)) loadImageAsset(key, src);
+
+      const audio = {
+        ctx: null,
+        beep(type) {
+          try {
+            this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = type === "sniff" ? "triangle" : "sine";
+            osc.frequency.setValueAtTime(type === "complete" ? 523 : type === "sniff" ? 220 : 360, now);
+            osc.frequency.exponentialRampToValueAtTime(type === "complete" ? 784 : 180, now + 0.12);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.08, now + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+            osc.connect(gain).connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.2);
+          } catch (err) {
+            // Audio is optional; browsers may block it until a direct user gesture.
+          }
+        }
+      };
+
+      const input = {
+        keys: new Set(),
+        stick: { active: false, id: null, x: 0, y: 0 },
+        move: { x: 0, y: 0 },
+        sniffQueued: false,
+        useQueued: false
+      };
+
+      const player = {
+        x: 10 * TILE + 16,
+        y: 29 * TILE + 12,
+        r: 11,
+        speed: 104,
+        dir: "up",
+        moving: false,
+        action: "",
+        actionT: 0
+      };
+
+      const camera = { x: 0, y: 0 };
+      const questState = {
+        id: "lost_bone",
+        state: "not_started",
+        clues: new Set(),
+        hasBone: false
+      };
+
+      const mapTiles = Array.from({ length: MAP_H }, () => Array.from({ length: MAP_W }, () => "grass"));
+      const collisionObjects = [];
+      const particles = [];
+      let dialogTimer = 0;
+      let sniffTimer = 0;
+      let sniffCooldown = 0;
+      let nearest = null;
+      let lastTime = performance.now();
+
+      function viewportSize() {
+        const visual = window.visualViewport;
+        return {
+          w: Math.max(320, Math.round(visual?.width || window.innerWidth || 400)),
+          h: Math.max(480, Math.round(visual?.height || window.innerHeight || 640))
+        };
+      }
+
+      function resizeGameCanvas() {
+        const size = viewportSize();
+        if (canvas.width === size.w && canvas.height === size.h) return;
+        canvas.width = size.w;
+        canvas.height = size.h;
+        VIEW_W = canvas.width;
+        VIEW_H = canvas.height;
+        camera.x = Math.max(0, Math.min(Math.max(0, WORLD_W - VIEW_W), player.x - VIEW_W / 2));
+        camera.y = Math.max(0, Math.min(Math.max(0, WORLD_H - VIEW_H), player.y - VIEW_H / 2));
+      }
+
+      function rect(x, y, w, h, type = "solid") {
+        const obj = { x, y, w, h, type };
+        collisionObjects.push(obj);
+        return obj;
+      }
+
+      function tileRect(tx, ty, tw, th, type) {
+        return rect(tx * TILE, ty * TILE, tw * TILE, th * TILE, type);
+      }
+
+      function setTile(tx, ty, type) {
+        if (tx >= 0 && tx < MAP_W && ty >= 0 && ty < MAP_H) mapTiles[ty][tx] = type;
+      }
+
+      function fillTiles(tx, ty, tw, th, type) {
+        for (let y = ty; y < ty + th; y++) {
+          for (let x = tx; x < tx + tw; x++) setTile(x, y, type);
+        }
+      }
+
+      function buildMap() {
+        fillTiles(8, 0, 4, MAP_H, "path");
+        fillTiles(0, 26, MAP_W, 3, "path");
+        fillTiles(5, 5, 9, 3, "path");
+        fillTiles(3, 13, 9, 2, "path");
+        fillTiles(12, 18, 6, 2, "path");
+        fillTiles(1, 21, 6, 2, "path");
+        fillTiles(0, 29, MAP_W, 3, "path");
+        fillTiles(2, 8, 4, 4, "water");
+        fillTiles(2, 10, 4, 1, "bridge");
+        fillTiles(1, 2, 5, 4, "house");
+        fillTiles(13, 3, 5, 4, "house");
+        fillTiles(1, 16, 4, 3, "doghouse");
+        fillTiles(13, 22, 5, 6, "garden");
+        fillTiles(14, 23, 3, 4, "dirt");
+        fillTiles(13, 22, 5, 1, "fence");
+        fillTiles(13, 27, 5, 1, "fence");
+        fillTiles(13, 22, 1, 6, "fence");
+        fillTiles(17, 22, 1, 6, "fence");
+        setTile(15, 22, "gate");
+        for (const p of [[7,4],[6,12],[12,10],[2,15],[18,15],[5,24],[11,23],[18,29]]) setTile(p[0], p[1], "bush");
+        for (const p of [[7,7],[14,8],[6,9],[6,11],[3,15],[4,15],[5,15],[12,24],[12,25],[17,21],[18,20],[2,24],[3,25],[6,25]]) setTile(p[0], p[1], "flowers");
+        for (const p of [[6,6],[14,13],[6,19],[10,21]]) setTile(p[0], p[1], "crate");
+        for (const p of [[16,8],[3,23],[12,16]]) setTile(p[0], p[1], "barrel");
+        setTile(6, 8, "sign");
+        setTile(4, 18, "sign");
+
+        tileRect(1, 2, 5, 4, "house");
+        tileRect(13, 3, 5, 4, "house");
+        tileRect(1, 16, 4, 3, "house");
+        tileRect(2, 8, 4, 2, "water");
+        tileRect(2, 11, 4, 1, "water");
+        for (const p of [[7,4],[6,12],[12,10],[2,15],[18,15],[5,24],[11,23],[18,29]]) tileRect(p[0], p[1], 1, 1, "bush");
+        for (const p of [[6,6],[14,13],[6,19],[10,21]]) tileRect(p[0], p[1], 1, 1, "crate");
+        for (const p of [[16,8],[3,23],[12,16]]) tileRect(p[0], p[1], 1, 1, "barrel");
+        tileRect(13, 22, 2, 1, "fence");
+        tileRect(16, 22, 2, 1, "fence");
+        tileRect(13, 27, 5, 1, "fence");
+        tileRect(13, 22, 1, 6, "fence");
+        tileRect(17, 22, 1, 6, "fence");
+        tileRect(15, 22, 1, 1, "gate");
+      }
+
+      const npcs = [{
+        id: "bella",
+        name: "Bella",
+        x: 10 * TILE + 16,
+        y: 6 * TILE + 16,
+        r: 12,
+        prompt: "Talk"
+      }];
+
+      const interactables = [
+        {
+          id: "clue_sign",
+          kind: "clue",
+          clueId: "clue_1",
+          label: "scratched sign",
+          prompt: "Inspect",
+          x: 6 * TILE + 16,
+          y: 8 * TILE + 16,
+          found: false,
+          text: "The sign is scratched with tiny tooth marks. Bella's bone rolled past the pond."
+        },
+        {
+          id: "clue_print",
+          kind: "clue",
+          clueId: "clue_2",
+          label: "paw print",
+          prompt: "Inspect",
+          x: 4 * TILE + 16,
+          y: 15 * TILE + 16,
+          found: false,
+          text: "A muddy paw print points from the flower bed toward the doghouse."
+        },
+        {
+          id: "clue_stick",
+          kind: "clue",
+          clueId: "clue_3",
+          label: "chewed stick",
+          prompt: "Inspect",
+          x: 4 * TILE + 16,
+          y: 19 * TILE + 16,
+          found: false,
+          text: "This chewed stick smells like Bella and fresh garden dirt."
+        },
+        {
+          id: "final_dig",
+          kind: "dig",
+          prompt: "Dig",
+          x: 15 * TILE + 16,
+          y: 25 * TILE + 16,
+          dug: false,
+          text: "Bruno digs with heroic little paws and finds Bella's golden bone."
+        },
+        {
+          id: "garden_gate",
+          kind: "gate",
+          prompt: "Use",
+          x: 15 * TILE + 16,
+          y: 22 * TILE + 16,
+          text: "The garden gate is locked. Bruno needs the whole scent trail first."
+        }
+      ];
+
+      buildMap();
+
+      function updateQuestAfterClue() {
+        const n = questState.clues.size;
+        if (n === 1) questState.state = "clue_1_found";
+        if (n === 2) questState.state = "clue_2_found";
+        if (n >= 3) {
+          questState.state = "gate_open";
+          const gate = collisionObjects.find(o => o.type === "gate");
+          if (gate) gate.open = true;
+          setTile(15, 22, "path");
+          showDialog("Bruno", "The three scents line up. The garden gate swings open.");
+        }
+      }
+
+      function questObjective() {
+        if (questState.state === "not_started") return { text: "Find Bella in the park", target: npcs[0] };
+        if (questState.state === "completed") return { text: "Quest complete", target: npcs[0] };
+        if (questState.hasBone) return { text: "Return the golden bone to Bella", target: npcs[0] };
+        const clueCount = questState.clues.size;
+        if (clueCount < 3) {
+          const next = interactables.find(i => i.kind === "clue" && !questState.clues.has(i.clueId));
+          return { text: "Find Bella's lost bone " + clueCount + "/3", target: next };
+        }
+        if (questState.state === "gate_open") return { text: "Dig in the opened garden", target: interactables.find(i => i.id === "final_dig") };
+        return { text: "Follow the scent trail", target: npcs[0] };
+      }
+
+      function showDialog(speaker, text, seconds = 3.2) {
+        dialogEl.innerHTML = "<strong>" + speaker + ":</strong> " + text;
+        dialogEl.classList.add("show");
+        dialogTimer = seconds;
+      }
+
+      function hideDialog() {
+        dialogEl.classList.remove("show");
+        dialogTimer = 0;
+      }
+
+      function resetGame() {
+        player.x = 10 * TILE + 16;
+        player.y = 29 * TILE + 12;
+        player.dir = "up";
+        player.action = "";
+        player.actionT = 0;
+        questState.state = "not_started";
+        questState.clues = new Set();
+        questState.hasBone = false;
+        for (const i of interactables) {
+          i.found = false;
+          i.dug = false;
+        }
+        const gate = collisionObjects.find(o => o.type === "gate");
+        if (gate) gate.open = false;
+        setTile(15, 22, "gate");
+        particles.length = 0;
+        completeEl.classList.remove("show");
+        hideDialog();
+      }
+
+      function distance(a, b) {
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      function getNearestInteractable() {
+        const options = [];
+        for (const npc of npcs) options.push({ type: "npc", entity: npc, dist: distance(player, npc) });
+        for (const item of interactables) {
+          if (item.kind === "clue" && questState.clues.has(item.clueId)) continue;
+          if (item.kind === "dig" && (questState.state !== "gate_open" || item.dug)) continue;
+          if (item.kind === "gate" && questState.state === "gate_open") continue;
+          options.push({ type: item.kind, entity: item, dist: distance(player, item) });
+        }
+        options.sort((a, b) => a.dist - b.dist);
+        const candidate = options[0];
+        return candidate && candidate.dist < 42 ? candidate : null;
+      }
+
+      function interact() {
+        if (!nearest) return;
+        const entity = nearest.entity;
+        audio.beep("click");
+        player.action = nearest.type === "dig" ? "dig" : "sniff";
+        player.actionT = 0.35;
+        if (nearest.type === "npc") {
+          if (questState.state === "not_started") {
+            questState.state = "started";
+            showDialog("Bella", "Bruno, my golden bone is missing. Can your big sniff find it?");
+          } else if (questState.hasBone) {
+            questState.state = "completed";
+            questState.hasBone = false;
+            showDialog("Bella", "You found it! Best nose in the whole park.", 2.4);
+            audio.beep("complete");
+            setTimeout(() => completeEl.classList.add("show"), 700);
+          } else {
+            const clueCount = questState.clues.size;
+            showDialog("Bella", clueCount < 3 ? "Try sniffing near the pond, flowers, and doghouse." : "That garden smells suspicious. Try digging there.");
+          }
+          return;
+        }
+        if (nearest.type === "clue") {
+          questState.clues.add(entity.clueId);
+          entity.found = true;
+          showDialog("Bruno", entity.text);
+          updateQuestAfterClue();
+          return;
+        }
+        if (nearest.type === "dig") {
+          entity.dug = true;
+          questState.hasBone = true;
+          questState.state = "bone_found";
+          showDialog("Bruno", entity.text);
+          spawnSparkles(entity.x, entity.y, 24, COLORS.bone);
+          return;
+        }
+        if (nearest.type === "gate") {
+          showDialog("Gate", entity.text);
+        }
+      }
+
+      function sniff() {
+        if (sniffCooldown > 0) return;
+        sniffTimer = 2;
+        sniffCooldown = 2;
+        player.action = "sniff";
+        player.actionT = 0.45;
+        audio.beep("sniff");
+        const target = questObjective().target;
+        if (!target) return;
+        const dx = target.x - player.x;
+        const dy = target.y - player.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        const nx = dx / len;
+        const ny = dy / len;
+        for (let i = 0; i < 34; i++) {
+          const step = 18 + i * 12;
+          particles.push({
+            x: player.x + nx * step + Math.sin(i * 1.7) * 12 + (Math.random() - 0.5) * 10,
+            y: player.y + ny * step + Math.cos(i * 1.3) * 12 + (Math.random() - 0.5) * 10,
+            vx: (Math.random() - 0.5) * 8,
+            vy: -10 - Math.random() * 12,
+            life: 1.5 + Math.random() * 0.55,
+            max: 2,
+            size: 2 + Math.random() * 4,
+            color: COLORS.scent
+          });
+        }
+      }
+
+      function spawnSparkles(x, y, count, color) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const sp = 28 + Math.random() * 50;
+          particles.push({
+            x, y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp,
+            life: 0.6 + Math.random() * 0.5,
+            max: 1.1,
+            size: 2 + Math.random() * 3,
+            color
+          });
+        }
+      }
+
+      function updateInputVector() {
+        let x = input.stick.x;
+        let y = input.stick.y;
+        if (input.keys.has("ArrowLeft") || input.keys.has("KeyA")) x -= 1;
+        if (input.keys.has("ArrowRight") || input.keys.has("KeyD")) x += 1;
+        if (input.keys.has("ArrowUp") || input.keys.has("KeyW")) y -= 1;
+        if (input.keys.has("ArrowDown") || input.keys.has("KeyS")) y += 1;
+        const len = Math.hypot(x, y);
+        input.move.x = len > 1 ? x / len : x;
+        input.move.y = len > 1 ? y / len : y;
+      }
+
+      function circleRect(cx, cy, r, obj) {
+        if (obj.open) return false;
+        const closestX = Math.max(obj.x, Math.min(cx, obj.x + obj.w));
+        const closestY = Math.max(obj.y, Math.min(cy, obj.y + obj.h));
+        return Math.hypot(cx - closestX, cy - closestY) < r;
+      }
+
+      function collides(x, y) {
+        if (x < 10 || y < 10 || x > WORLD_W - 10 || y > WORLD_H - 10) return true;
+        return collisionObjects.some(obj => circleRect(x, y, player.r, obj));
+      }
+
+      function movePlayer(dt) {
+        updateInputVector();
+        const mx = input.move.x;
+        const my = input.move.y;
+        player.moving = Math.abs(mx) + Math.abs(my) > 0.05;
+        if (!player.moving) return;
+        if (Math.abs(mx) > Math.abs(my)) player.dir = mx > 0 ? "right" : "left";
+        else player.dir = my > 0 ? "down" : "up";
+        const step = player.speed * dt;
+        const nx = player.x + mx * step;
+        const ny = player.y + my * step;
+        if (!collides(nx, player.y)) player.x = nx;
+        if (!collides(player.x, ny)) player.y = ny;
+      }
+
+      function update(dt) {
+        resizeGameCanvas();
+        if (completeEl.classList.contains("show")) return;
+        movePlayer(dt);
+        if (input.sniffQueued) {
+          input.sniffQueued = false;
+          sniff();
+        }
+        if (input.useQueued) {
+          input.useQueued = false;
+          interact();
+        }
+        nearest = getNearestInteractable();
+        promptEl.textContent = nearest ? nearest.entity.prompt : "";
+        promptEl.classList.toggle("show", !!nearest);
+        useBtn.textContent = nearest ? nearest.entity.prompt.toUpperCase() : "USE";
+        questText.textContent = questObjective().text;
+        sniffTimer = Math.max(0, sniffTimer - dt);
+        sniffCooldown = Math.max(0, sniffCooldown - dt);
+        sniffBtn.classList.toggle("down", sniffCooldown > 0);
+        if (dialogTimer > 0) {
+          dialogTimer -= dt;
+          if (dialogTimer <= 0) hideDialog();
+        }
+        player.actionT = Math.max(0, player.actionT - dt);
+        if (player.actionT <= 0) player.action = "";
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= dt;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+        const targetX = Math.max(0, Math.min(Math.max(0, WORLD_W - VIEW_W), player.x - VIEW_W / 2));
+        const targetY = Math.max(0, Math.min(Math.max(0, WORLD_H - VIEW_H), player.y - VIEW_H / 2));
+        camera.x += (targetX - camera.x) * Math.min(1, dt * 8);
+        camera.y += (targetY - camera.y) * Math.min(1, dt * 8);
+      }
+
+      function worldToScreen(x, y) {
+        return { x: Math.round(x - camera.x), y: Math.round(y - camera.y) };
+      }
+
+      function drawRoundedRect(x, y, w, h, r, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.fill();
+      }
+
+      function drawTile(tx, ty, type) {
+        const x = tx * TILE - camera.x;
+        const y = ty * TILE - camera.y;
+        if (x < -TILE || y < -TILE || x > VIEW_W || y > VIEW_H) return;
+        if (type === "grass") {
+          const key = tileVariant(tx, ty, ["grassPlain", "grassPlain", "grassPlain", "grassPlain", "grassBlades"]);
+          if (drawTileImage(key, x, y)) return;
+        } else if (type === "path") {
+          const key = tileVariant(tx, ty, ["pathPlain", "pathPlain", "pathPlain", "pathPebbles"]);
+          if (drawTileImage(key, x, y)) return;
+        } else if (type === "water") {
+          const key = tileVariant(tx, ty, ["waterPlain", "waterRipple", "waterPlain", "waterLily"]);
+          if (drawTileImage(key, x, y)) {
+            ctx.strokeStyle = "rgba(40, 116, 132, 0.38)";
+            ctx.lineWidth = 1;
+            const n = {
+              up: ty > 0 ? mapTiles[ty - 1]?.[tx] : "",
+              down: ty < MAP_H - 1 ? mapTiles[ty + 1]?.[tx] : "",
+              left: tx > 0 ? mapTiles[ty]?.[tx - 1] : "",
+              right: tx < MAP_W - 1 ? mapTiles[ty]?.[tx + 1] : ""
+            };
+            if (n.up !== "water" && n.up !== "bridge") { ctx.beginPath(); ctx.moveTo(x, y + 0.5); ctx.lineTo(x + TILE, y + 0.5); ctx.stroke(); }
+            if (n.down !== "water" && n.down !== "bridge") { ctx.beginPath(); ctx.moveTo(x, y + TILE - 0.5); ctx.lineTo(x + TILE, y + TILE - 0.5); ctx.stroke(); }
+            if (n.left !== "water" && n.left !== "bridge") { ctx.beginPath(); ctx.moveTo(x + 0.5, y); ctx.lineTo(x + 0.5, y + TILE); ctx.stroke(); }
+            if (n.right !== "water" && n.right !== "bridge") { ctx.beginPath(); ctx.moveTo(x + TILE - 0.5, y); ctx.lineTo(x + TILE - 0.5, y + TILE); ctx.stroke(); }
+            return;
+          }
+        } else if (type === "bridge") {
+          ctx.fillStyle = "#9d6a3d";
+          ctx.fillRect(x, y + 4, TILE, 24);
+          ctx.fillStyle = "#d39a58";
+          for (let i = 2; i < TILE; i += 8) ctx.fillRect(x + i, y + 5, 3, 22);
+          ctx.strokeStyle = "rgba(86, 52, 28, 0.55)";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y + 4.5, TILE, 23);
+          return;
+        } else if (type === "fence") {
+          if (drawTileImage("grassPlain", x, y)) return;
+        } else if (type === "garden" || type === "dirt") {
+          const baseKey = type === "dirt" ? "pathPebbles" : tileVariant(tx, ty, ["grassPlain", "grassPlain", "grassBlades"]);
+          if (drawTileImage(baseKey, x, y)) return;
+        } else if (type === "flowers") {
+          if (drawTileImage("grassFlowersTile", x, y)) return;
+        } else if (type === "bush") {
+          if (drawTileImage("grassPlain", x, y)) return;
+        } else if (type === "house" || type === "doghouse" || type === "crate" || type === "barrel" || type === "sign" || type === "gate") {
+          if (drawTileImage("grassPlain", x, y)) return;
+        }
+        ctx.fillStyle = type === "path" || type === "bridge" ? COLORS.path : COLORS.grass;
+        ctx.fillRect(x, y, TILE, TILE);
+        const propBackedTile = type === "house" || type === "doghouse" || type === "crate" || type === "barrel" || type === "sign" || type === "flowers" || type === "gate";
+        if (propBackedTile) return;
+        if (type === "grass") {
+          ctx.fillStyle = (tx + ty) % 2 ? COLORS.grassDark : COLORS.grassLight;
+          ctx.fillRect(x + 5, y + 8, 2, 8);
+          ctx.fillRect(x + 23, y + 19, 2, 6);
+        } else if (type === "path") {
+          ctx.fillStyle = COLORS.pathEdge;
+          ctx.fillRect(x, y + 28, TILE, 2);
+          ctx.fillStyle = "#f3dfaa";
+          ctx.fillRect(x + 5, y + 7, 6, 3);
+          ctx.fillRect(x + 20, y + 18, 5, 3);
+        } else if (type === "water") {
+          ctx.fillStyle = COLORS.water;
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = COLORS.waterDark;
+          ctx.fillRect(x, y + 25, TILE, 7);
+          ctx.strokeStyle = "#a6d9e9";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x + 4, y + 13);
+          ctx.quadraticCurveTo(x + 12, y + 7, x + 20, y + 13);
+          ctx.quadraticCurveTo(x + 26, y + 18, x + 31, y + 14);
+          ctx.stroke();
+        } else if (type === "bridge") {
+          ctx.fillStyle = "#a76f43";
+          ctx.fillRect(x, y + 4, TILE, 24);
+          ctx.fillStyle = "#d49a5c";
+          for (let i = 2; i < TILE; i += 8) ctx.fillRect(x + i, y + 5, 3, 22);
+        } else if (type === "house") {
+          ctx.fillStyle = COLORS.roof;
+          ctx.fillRect(x, y, TILE, 13);
+          ctx.fillStyle = COLORS.houseWall;
+          ctx.fillRect(x + 2, y + 13, TILE - 4, 18);
+          ctx.fillStyle = "#7c4c31";
+          ctx.fillRect(x + 12, y + 20, 8, 11);
+        } else if (type === "doghouse") {
+          ctx.fillStyle = "#a94935";
+          ctx.beginPath();
+          ctx.moveTo(x + 3, y + 16);
+          ctx.lineTo(x + 16, y + 4);
+          ctx.lineTo(x + 29, y + 16);
+          ctx.fill();
+          ctx.fillStyle = "#d9a15b";
+          ctx.fillRect(x + 5, y + 16, 22, 15);
+          ctx.fillStyle = "#513522";
+          ctx.fillRect(x + 12, y + 21, 8, 10);
+        } else if (type === "fence" || type === "gate") {
+          ctx.fillStyle = COLORS.grass;
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = type === "gate" ? "#b98253" : COLORS.fence;
+          ctx.fillRect(x + 3, y + 10, 26, 5);
+          ctx.fillRect(x + 3, y + 20, 26, 5);
+          ctx.fillStyle = COLORS.fenceDark;
+          ctx.fillRect(x + 6, y + 5, 5, 23);
+          ctx.fillRect(x + 21, y + 5, 5, 23);
+        } else if (type === "garden" || type === "dirt") {
+          ctx.fillStyle = type === "dirt" ? COLORS.dirt : "#89c86a";
+          ctx.fillRect(x, y, TILE, TILE);
+          if (type === "dirt") {
+            ctx.fillStyle = "#8c5f39";
+            ctx.fillRect(x + 5, y + 10, 8, 2);
+            ctx.fillRect(x + 17, y + 21, 10, 2);
+          }
+        } else if (type === "bush") {
+          ctx.fillStyle = COLORS.grass;
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = COLORS.bush;
+          ctx.beginPath();
+          ctx.arc(x + 11, y + 17, 10, 0, Math.PI * 2);
+          ctx.arc(x + 21, y + 15, 11, 0, Math.PI * 2);
+          ctx.arc(x + 17, y + 9, 9, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = COLORS.bushLight;
+          ctx.fillRect(x + 13, y + 9, 4, 3);
+        } else if (type === "flowers") {
+          ctx.fillStyle = COLORS.grass;
+          ctx.fillRect(x, y, TILE, TILE);
+          for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = i % 2 ? COLORS.flowerPink : COLORS.flowerBlue;
+            ctx.fillRect(x + 7 + i * 5, y + 12 + (i % 2) * 7, 4, 4);
+            ctx.fillStyle = "#f6e683";
+            ctx.fillRect(x + 8 + i * 5, y + 13 + (i % 2) * 7, 2, 2);
+          }
+        } else if (type === "crate") {
+          ctx.fillStyle = COLORS.grass;
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = "#b87945";
+          ctx.fillRect(x + 5, y + 7, 22, 20);
+          ctx.strokeStyle = "#72482c";
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x + 5, y + 7, 22, 20);
+          ctx.beginPath();
+          ctx.moveTo(x + 7, y + 9);
+          ctx.lineTo(x + 25, y + 25);
+          ctx.moveTo(x + 25, y + 9);
+          ctx.lineTo(x + 7, y + 25);
+          ctx.stroke();
+        } else if (type === "barrel") {
+          ctx.fillStyle = COLORS.grass;
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = "#8a5639";
+          drawRoundedRect(x + 7, y + 7, 18, 21, 6, "#9f6842");
+          ctx.fillStyle = "#5f3d2a";
+          ctx.fillRect(x + 8, y + 13, 16, 3);
+          ctx.fillRect(x + 8, y + 21, 16, 3);
+        } else if (type === "sign") {
+          ctx.fillStyle = COLORS.grass;
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = "#8d5d36";
+          ctx.fillRect(x + 14, y + 13, 4, 17);
+          ctx.fillStyle = "#c58d55";
+          ctx.fillRect(x + 6, y + 7, 20, 12);
+          ctx.fillStyle = COLORS.dark;
+          ctx.fillRect(x + 10, y + 12, 12, 2);
+        }
+      }
+
+      function drawShadow(x, y, w, h) {
+        ctx.fillStyle = "rgba(44,35,28,0.2)";
+        ctx.beginPath();
+        ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawPropAsset(key, x, y, w, h, opts = {}) {
+        const img = assets.images[key];
+        if (!img || !img.ready) return false;
+        if (opts.shadow !== false) drawShadow(x, y + (opts.shadowY || 11), w * 0.35, Math.max(3, h * 0.08));
+        ctx.save();
+        ctx.globalAlpha = opts.alpha ?? 1;
+        ctx.drawImage(img, Math.round(x - w / 2), Math.round(y - h / 2), w, h);
+        ctx.restore();
+        return true;
+      }
+
+      function tileVariant(tx, ty, keys) {
+        const n = Math.abs((tx * 73856093 ^ ty * 19349663) >>> 0);
+        return keys[n % keys.length];
+      }
+
+      function drawTileImage(key, x, y) {
+        const img = assets.images[key];
+        if (!img || !img.ready) return false;
+        ctx.drawImage(img, Math.round(x), Math.round(y), TILE, TILE);
+        return true;
+      }
+
+      function drawCharacterAsset(key, x, y, opts = {}) {
+        const img = assets.images[key];
+        if (!img || !img.ready) return false;
+        const t = performance.now() / 180;
+        const bob = opts.moving ? Math.sin(t) * 1.4 : Math.sin(t * 0.35) * 0.5;
+        const scale = opts.scale || 1;
+        const w = (opts.w || 58) * scale;
+        const h = (opts.h || 68) * scale;
+        const flip = opts.dir === "left";
+        drawShadow(x, y + 13, w * 0.28, 5);
+        ctx.save();
+        ctx.translate(x, y + bob);
+        if (flip) ctx.scale(-1, 1);
+        ctx.drawImage(img, -w / 2, -h + 18, w, h);
+        if (opts.action === "sniff") {
+          ctx.strokeStyle = COLORS.scent;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(15 + i * 6, -22 - i * 2, 6 + i * 2, -0.7, 0.9);
+            ctx.stroke();
+          }
+        }
+        if (opts.action === "dig") {
+          ctx.fillStyle = "#8c5f39";
+          ctx.fillRect(-17, 14, 34, 5);
+        }
+        ctx.restore();
+        return true;
+      }
+
+      function drawSpriteSheetCharacter(key, x, y, opts = {}) {
+        const img = assets.images[key];
+        if (!img || !img.ready) return false;
+        const rows = 4;
+        const cols = 4;
+        const rowByDir = { down: 0, left: 1, right: 2, up: 3 };
+        const row = rowByDir[opts.dir || "down"] ?? 0;
+        const frame = opts.moving ? Math.floor(performance.now() / 140) % cols : 1;
+        const sw = img.naturalWidth / cols;
+        const sh = img.naturalHeight / rows;
+        const w = opts.w || 58;
+        const h = opts.h || 62;
+        drawShadow(x, y + 13, w * 0.3, 5);
+        ctx.drawImage(
+          img,
+          frame * sw,
+          row * sh,
+          sw,
+          sh,
+          Math.round(x - w / 2),
+          Math.round(y - h + 18),
+          w,
+          h
+        );
+        if (opts.action === "sniff") {
+          ctx.strokeStyle = COLORS.scent;
+          ctx.lineWidth = 2;
+          const side = opts.dir === "left" ? -1 : 1;
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(x + side * (15 + i * 6), y - 22 - i * 2, 6 + i * 2, -0.7, 0.9);
+            ctx.stroke();
+          }
+        }
+        if (opts.action === "dig") {
+          ctx.fillStyle = "#8c5f39";
+          ctx.fillRect(x - 17, y + 14, 34, 5);
+        }
+        return true;
+      }
+
+      function drawDog(x, y, opts) {
+        const t = performance.now() / 180;
+        const bob = opts.moving ? Math.sin(t) * 1.4 : Math.sin(t * 0.35) * 0.5;
+        drawShadow(x, y + 12, 15, 5);
+        ctx.save();
+        ctx.translate(x, y + bob);
+        if (opts.dir === "left") ctx.scale(-1, 1);
+        const side = opts.dir === "left" || opts.dir === "right";
+        ctx.fillStyle = opts.body;
+        drawRoundedRect(side ? -13 : -12, -5, side ? 25 : 24, 20, 8, opts.body);
+        ctx.fillStyle = opts.dark;
+        ctx.fillRect(side ? 3 : -8, -1, 7, 8);
+        ctx.fillStyle = opts.body;
+        ctx.beginPath();
+        ctx.arc(side ? 10 : 0, -12, 13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = opts.muzzle;
+        drawRoundedRect(side ? 9 : -9, -11, side ? 12 : 18, 11, 5, opts.muzzle);
+        ctx.fillStyle = "#3a2921";
+        ctx.fillRect(side ? 15 : -5, -8, 4, 3);
+        ctx.fillRect(side ? 5 : 5, -15, 3, 3);
+        if (!side) ctx.fillRect(-8, -15, 3, 3);
+        ctx.fillStyle = opts.ear;
+        ctx.beginPath();
+        ctx.arc(side ? 1 : -10, -18, 5, 0, Math.PI * 2);
+        ctx.arc(side ? 11 : 10, -18, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = opts.bandana;
+        ctx.beginPath();
+        ctx.moveTo(-9, -1);
+        ctx.lineTo(10, -1);
+        ctx.lineTo(0, 8);
+        ctx.fill();
+        if (opts.pack) {
+          ctx.fillStyle = "#5f8066";
+          drawRoundedRect(-14, -1, 8, 13, 3, "#5f8066");
+          ctx.fillStyle = "#385848";
+          ctx.fillRect(-13, 3, 6, 2);
+        }
+        const leg = opts.moving ? Math.sin(t) * 2 : 0;
+        ctx.fillStyle = opts.dark;
+        ctx.fillRect(-9, 10 + leg, 5, 7);
+        ctx.fillRect(5, 10 - leg, 5, 7);
+        if (opts.action === "sniff") {
+          ctx.strokeStyle = COLORS.scent;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.arc(side ? 25 + i * 6 : -10 + i * 10, -8 - i * 2, 6 + i * 2, -0.6, 0.8);
+            ctx.stroke();
+          }
+        }
+        if (opts.action === "dig") {
+          ctx.fillStyle = "#8c5f39";
+          ctx.fillRect(-14, 15, 28, 4);
+        }
+        ctx.restore();
+      }
+
+      function drawBella(x, y) {
+        drawDog(x, y, {
+          body: "#d99b63",
+          dark: "#7d4a32",
+          muzzle: "#f1cf9c",
+          ear: "#8e5338",
+          bandana: "#6db1d2",
+          pack: false,
+          dir: "down",
+          moving: false,
+          action: ""
+        });
+        ctx.fillStyle = "#fff4d5";
+        ctx.fillRect(x - 13, y - 34 + Math.sin(performance.now() / 300) * 2, 26, 12);
+        ctx.fillStyle = COLORS.dark;
+        ctx.font = "8px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Bella", x, y - 25);
+      }
+
+      function drawClue(item) {
+        if (questState.clues.has(item.clueId)) return;
+        const s = worldToScreen(item.x, item.y);
+        const glow = sniffTimer > 0;
+        if (glow) {
+          ctx.fillStyle = "rgba(255,229,138,0.42)";
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 18 + Math.sin(performance.now() / 120) * 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        if (item.id === "clue_sign") {
+          if (drawPropAsset("scratchedSign", s.x, s.y - 5, 34, 36)) return;
+          ctx.fillStyle = "#8d5d36";
+          ctx.fillRect(s.x - 2, s.y - 2, 4, 15);
+          ctx.fillStyle = "#c58d55";
+          ctx.fillRect(s.x - 12, s.y - 13, 24, 12);
+          ctx.fillStyle = "#603925";
+          ctx.fillRect(s.x - 8, s.y - 8, 16, 2);
+          ctx.fillRect(s.x - 2, s.y - 13, 2, 7);
+        } else if (item.id === "clue_print") {
+          if (drawPropAsset("muddyPawprint", s.x, s.y, 36, 30)) return;
+          ctx.fillStyle = "#6e5139";
+          ctx.beginPath();
+          ctx.ellipse(s.x, s.y + 3, 8, 5, -0.4, 0, Math.PI * 2);
+          ctx.fill();
+          for (let i = -1; i <= 1; i++) {
+            ctx.beginPath();
+            ctx.arc(s.x + i * 6, s.y - 5 - Math.abs(i), 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          if (drawPropAsset("chewedStick", s.x, s.y, 38, 31)) return;
+          ctx.strokeStyle = "#8a5a35";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(s.x - 10, s.y + 4);
+          ctx.lineTo(s.x + 10, s.y - 5);
+          ctx.stroke();
+          ctx.fillStyle = "#7b4a2d";
+          ctx.fillRect(s.x + 4, s.y - 8, 4, 4);
+        }
+      }
+
+      function drawBone(x, y) {
+        if (drawPropAsset("goldenBone", x, y, 34, 28, { shadowY: 9 })) return;
+        ctx.fillStyle = COLORS.bone;
+        ctx.strokeStyle = "#b98526";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x - 10, y - 4, 6, 0, Math.PI * 2);
+        ctx.arc(x - 10, y + 5, 6, 0, Math.PI * 2);
+        ctx.arc(x + 10, y - 4, 6, 0, Math.PI * 2);
+        ctx.arc(x + 10, y + 5, 6, 0, Math.PI * 2);
+        ctx.rect(x - 10, y - 4, 20, 9);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      function drawDecorProps() {
+        const props = [
+          { key: "cottageProp", x: 3.5 * TILE, y: 4.0 * TILE, w: 86, h: 76 },
+          { key: "cottageProp", x: 15.5 * TILE, y: 5.0 * TILE, w: 86, h: 76 },
+          { key: "doghouseProp", x: 3.0 * TILE, y: 17.4 * TILE, w: 70, h: 62 },
+          { key: "treeCanopy", x: 2.0 * TILE, y: 25.0 * TILE, w: 62, h: 66 },
+          { key: "treeCanopy", x: 18.1 * TILE, y: 18.0 * TILE, w: 56, h: 60 },
+          { key: "treeCanopy", x: 7.4 * TILE, y: 20.9 * TILE, w: 56, h: 60 },
+          { key: "parkBench", x: 12.1 * TILE, y: 15.9 * TILE, w: 64, h: 43 },
+          { key: "pondReeds", x: 3.4 * TILE, y: 9.45 * TILE, w: 48, h: 46 },
+          { key: "pondReeds", x: 5.15 * TILE, y: 8.9 * TILE, w: 38, h: 36 },
+          { key: "bridgeRail", x: 3.9 * TILE, y: 10.45 * TILE, w: 112, h: 30, shadow: false },
+          { key: "pathStones", x: 10.4 * TILE, y: 20.7 * TILE, w: 48, h: 38 },
+          { key: "pathStones", x: 14.8 * TILE, y: 21.2 * TILE, w: 44, h: 35 },
+          { key: "grassTuft", x: 6.8 * TILE, y: 29.2 * TILE, w: 54, h: 34 },
+          { key: "grassTuft", x: 6.1 * TILE, y: 12.1 * TILE, w: 42, h: 27 },
+          { key: "grassTuft", x: 18.0 * TILE, y: 14.8 * TILE, w: 42, h: 27 },
+          { key: "grassTuft", x: 16.9 * TILE, y: 29.0 * TILE, w: 52, h: 33 },
+          { key: "lanternPost", x: 7.0 * TILE, y: 7.0 * TILE, w: 38, h: 53 },
+          { key: "lanternPost", x: 17.8 * TILE, y: 20.8 * TILE, w: 36, h: 50 },
+          { key: "flowerBushProp", x: 4.3 * TILE, y: 15.5 * TILE, w: 58, h: 37 },
+          { key: "flowerBushProp", x: 6.1 * TILE, y: 8.9 * TILE, w: 42, h: 27 },
+          { key: "flowerBushProp", x: 12.6 * TILE, y: 23.9 * TILE, w: 42, h: 27 },
+          { key: "flowerBushProp", x: 12.7 * TILE, y: 25.4 * TILE, w: 54, h: 34 },
+          { key: "crateBarrelProp", x: 6.6 * TILE, y: 6.5 * TILE, w: 56, h: 38 },
+          { key: "crateBarrelProp", x: 14.7 * TILE, y: 13.5 * TILE, w: 56, h: 38 }
+        ];
+        for (const p of props) {
+          const s = worldToScreen(p.x, p.y);
+          drawPropAsset(p.key, s.x, s.y, p.w, p.h, { shadow: p.shadow });
+        }
+
+        drawGardenFence();
+
+        const gate = worldToScreen(15 * TILE + 16, 22 * TILE + 14);
+        const gateKey = questState.state === "gate_open" || questState.state === "bone_found" || questState.state === "completed" ? "openGate" : "closedGate";
+        drawPropAsset(gateKey, gate.x, gate.y - 4, gateKey === "openGate" ? 58 : 64, 45);
+      }
+
+      function drawGardenFence() {
+        const sx = 13 * TILE - camera.x;
+        const sy = 22 * TILE - camera.y;
+        const w = 5 * TILE;
+        const h = 6 * TILE;
+        ctx.save();
+        ctx.strokeStyle = "#8f5b32";
+        ctx.lineWidth = 5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(sx + 5, sy + 15);
+        ctx.lineTo(sx + 2 * TILE - 5, sy + 15);
+        ctx.moveTo(sx + 3 * TILE + 5, sy + 15);
+        ctx.lineTo(sx + w - 5, sy + 15);
+        ctx.moveTo(sx + 5, sy + h - 15);
+        ctx.lineTo(sx + w - 5, sy + h - 15);
+        ctx.moveTo(sx + 15, sy + 5);
+        ctx.lineTo(sx + 15, sy + h - 5);
+        ctx.moveTo(sx + w - 15, sy + 5);
+        ctx.lineTo(sx + w - 15, sy + h - 5);
+        ctx.stroke();
+        ctx.strokeStyle = "#d09a55";
+        ctx.lineWidth = 2;
+        for (let x = sx + 16; x <= sx + w - 16; x += 22) {
+          if (x > sx + 2 * TILE - 4 && x < sx + 3 * TILE + 4) continue;
+          ctx.beginPath();
+          ctx.moveTo(x, sy + 5);
+          ctx.lineTo(x, sy + 25);
+          ctx.moveTo(x, sy + h - 25);
+          ctx.lineTo(x, sy + h - 5);
+          ctx.stroke();
+        }
+        for (let y = sy + 16; y <= sy + h - 16; y += 22) {
+          ctx.beginPath();
+          ctx.moveTo(sx + 5, y);
+          ctx.lineTo(sx + 25, y);
+          ctx.moveTo(sx + w - 25, y);
+          ctx.lineTo(sx + w - 5, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawQuestFeedback() {
+        const target = questObjective().target;
+        if (!target) return;
+        if (sniffTimer > 0) {
+          const dx = target.x - player.x;
+          const dy = target.y - player.y;
+          const len = Math.max(1, Math.hypot(dx, dy));
+          for (let i = 1; i <= 3; i++) {
+            const x = player.x + dx / len * i * 54;
+            const y = player.y + dy / len * i * 54;
+            const s = worldToScreen(x, y);
+            drawPropAsset("scentSwirl", s.x, s.y, 28, 28, { shadow: false, alpha: 0.82 });
+          }
+        }
+        if (nearest && nearest.entity === target) return;
+        if (questState.state !== "completed" && (sniffTimer > 0 || questState.state === "not_started")) {
+          const s = worldToScreen(target.x, target.y - 28);
+          const bob = Math.sin(performance.now() / 180) * 2;
+          drawPropAsset("questMarker", s.x, s.y + bob, 28, 30, { shadow: false, alpha: 0.92 });
+        }
+      }
+
+      function drawWorld() {
+        ctx.clearRect(0, 0, VIEW_W, VIEW_H);
+        for (let y = 0; y < MAP_H; y++) {
+          for (let x = 0; x < MAP_W; x++) drawTile(x, y, mapTiles[y][x]);
+        }
+        drawDecorProps();
+        for (const item of interactables.filter(i => i.kind === "clue")) drawClue(item);
+        const dig = interactables.find(i => i.id === "final_dig");
+        const digS = worldToScreen(dig.x, dig.y);
+        if (!dig.dug) {
+          ctx.fillStyle = questState.state === "gate_open" && sniffTimer > 0 ? "rgba(255,229,138,0.5)" : "rgba(0,0,0,0)";
+          ctx.beginPath();
+          ctx.arc(digS.x, digS.y, 22, 0, Math.PI * 2);
+          ctx.fill();
+          if (!drawPropAsset("digHoleProp", digS.x, digS.y, 40, 30, { shadowY: 9 })) {
+            ctx.fillStyle = "#8c5f39";
+            ctx.fillRect(digS.x - 13, digS.y - 7, 26, 13);
+            ctx.fillStyle = "#c29055";
+            ctx.fillRect(digS.x - 8, digS.y - 3, 16, 3);
+          }
+        }
+        if (questState.hasBone) drawBone(digS.x, digS.y - 18);
+
+        const actors = [
+          ...npcs.map(n => ({ y: n.y, draw: () => {
+            const s = worldToScreen(n.x, n.y);
+            if (!drawSpriteSheetCharacter("bellaSheet", s.x, s.y, { w: 56, h: 62, dir: "down", moving: false })) drawBella(s.x, s.y);
+          }})),
+          { y: player.y, draw: () => {
+            const s = worldToScreen(player.x, player.y);
+            if (!drawSpriteSheetCharacter("brunoSheet", s.x, s.y, {
+              w: 60,
+              h: 62,
+              dir: player.dir,
+              moving: player.moving,
+              action: player.action
+            })) {
+              drawDog(s.x, s.y, {
+                body: "#b8845f",
+                dark: "#67412d",
+                muzzle: "#ebc78e",
+                ear: "#5d3529",
+                bandana: "#d94a3b",
+                pack: true,
+                dir: player.dir,
+                moving: player.moving,
+                action: player.action
+              });
+            }
+            if (questState.hasBone) drawBone(s.x, s.y - 30);
+          }}
+        ];
+        actors.sort((a, b) => a.y - b.y).forEach(a => a.draw());
+        drawQuestFeedback();
+
+        for (const p of particles) {
+          const s = worldToScreen(p.x, p.y);
+          ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.max));
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+
+        if (sniffCooldown > 0) {
+          ctx.fillStyle = "rgba(255,244,213,0.82)";
+          ctx.fillRect(VIEW_W - 76, 10, 62, 8);
+          ctx.fillStyle = "#d96d3f";
+          ctx.fillRect(VIEW_W - 74, 12, 58 * (1 - sniffCooldown / 2), 4);
+        }
+      }
+
+      function loop(now) {
+        const dt = Math.min(0.033, (now - lastTime) / 1000);
+        lastTime = now;
+        update(dt);
+        drawWorld();
+        requestAnimationFrame(loop);
+      }
+
+      function queueSniff(ev) {
+        ev.preventDefault();
+        input.sniffQueued = true;
+      }
+
+      function queueUse(ev) {
+        ev.preventDefault();
+        input.useQueued = true;
+      }
+
+      function fullscreenElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement;
+      }
+
+      function updateFullscreenButton() {
+        fullscreenBtn.textContent = fullscreenElement() ? "ESC" : "FS";
+        fullscreenBtn.title = fullscreenElement() ? "Exit fullscreen" : "Fullscreen";
+      }
+
+      async function toggleFullscreen(ev) {
+        ev.preventDefault();
+        const root = document.documentElement;
+        try {
+          if (fullscreenElement()) {
+            if (document.exitFullscreen) await document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+          } else if (root.requestFullscreen) {
+            await root.requestFullscreen({ navigationUI: "hide" });
+          } else if (root.webkitRequestFullscreen) {
+            root.webkitRequestFullscreen();
+          } else {
+            showDialog("Bruno", "This browser does not expose fullscreen here. Add the page to your home screen for app-style play.", 3.5);
+          }
+        } catch (err) {
+          showDialog("Bruno", "Fullscreen needs a direct tap in this browser.", 2.8);
+        }
+        updateFullscreenButton();
+      }
+
+      window.__brunoDebug = {
+        state: () => ({
+          player: { x: Math.round(player.x), y: Math.round(player.y), dir: player.dir, moving: player.moving },
+          quest: { state: questState.state, clues: questState.clues.size, hasBone: questState.hasBone },
+          nearest: nearest ? { type: nearest.type, id: nearest.entity.id, prompt: nearest.entity.prompt } : null,
+          sniffCooldown: Number(sniffCooldown.toFixed(2)),
+          particles: particles.length,
+          assets: {
+            brunoSheet: !!assets.images.brunoSheet?.ready,
+            bellaSheet: !!assets.images.bellaSheet?.ready,
+            props: [
+              "goldenBone",
+              "scratchedSign",
+              "muddyPawprint",
+              "chewedStick",
+              "closedGate",
+              "openGate",
+              "doghouseProp",
+              "cottageProp",
+              "flowerBushProp",
+              "crateBarrelProp",
+              "treeCanopy",
+              "parkBench",
+              "pondReeds",
+              "bridgeRail",
+              "digHoleProp",
+              "scentSwirl",
+              "questMarker",
+              "pathStones",
+              "grassTuft",
+              "lanternPost",
+              "grassPlain",
+              "grassBlades",
+              "grassDarkTile",
+              "grassFlowersTile",
+              "pathPlain",
+              "pathPebbles",
+              "pathGrassEdge",
+              "pathCorner",
+              "waterPlain",
+              "waterRipple",
+              "waterBank",
+              "waterLily",
+              "fenceHorizontal",
+              "fenceVertical",
+              "fenceCorner",
+              "fencePost"
+            ].every(key => !!assets.images[key]?.ready)
+          }
+        }),
+        warp: (x, y) => { player.x = x; player.y = y; },
+        interact: () => { input.useQueued = true; },
+        sniff: () => { input.sniffQueued = true; }
+      };
+
+      fullscreenBtn.addEventListener("pointerdown", toggleFullscreen);
+      document.addEventListener("fullscreenchange", updateFullscreenButton);
+      document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+      sniffBtn.addEventListener("pointerdown", queueSniff);
+      useBtn.addEventListener("pointerdown", queueUse);
+      playAgain.addEventListener("click", resetGame);
+
+      window.addEventListener("keydown", ev => {
+        if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(ev.code)) ev.preventDefault();
+        input.keys.add(ev.code);
+        if (ev.code === "Space") input.sniffQueued = true;
+        if (ev.code === "KeyE" || ev.code === "Enter") input.useQueued = true;
+      });
+      window.addEventListener("keyup", ev => input.keys.delete(ev.code));
+
+      function stickPoint(ev) {
+        const rect = stickEl.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        let x = ev.clientX - cx;
+        let y = ev.clientY - cy;
+        const max = rect.width * 0.32;
+        const len = Math.hypot(x, y);
+        if (len > max) {
+          x = x / len * max;
+          y = y / len * max;
+        }
+        nubEl.style.transform = "translate(" + x + "px," + y + "px)";
+        input.stick.x = x / max;
+        input.stick.y = y / max;
+      }
+
+      stickEl.addEventListener("pointerdown", ev => {
+        ev.preventDefault();
+        input.stick.active = true;
+        input.stick.id = ev.pointerId;
+        stickEl.setPointerCapture(ev.pointerId);
+        stickPoint(ev);
+      });
+      stickEl.addEventListener("pointermove", ev => {
+        if (input.stick.active && ev.pointerId === input.stick.id) stickPoint(ev);
+      });
+      function releaseStick(ev) {
+        if (ev.pointerId !== input.stick.id) return;
+        input.stick.active = false;
+        input.stick.id = null;
+        input.stick.x = 0;
+        input.stick.y = 0;
+        nubEl.style.transform = "translate(0,0)";
+      }
+      stickEl.addEventListener("pointerup", releaseStick);
+      stickEl.addEventListener("pointercancel", releaseStick);
+
+      canvas.addEventListener("contextmenu", ev => ev.preventDefault());
+      window.addEventListener("resize", resizeGameCanvas);
+      window.visualViewport?.addEventListener("resize", resizeGameCanvas);
+      window.visualViewport?.addEventListener("scroll", resizeGameCanvas);
+      resizeGameCanvas();
+      showDialog("Bruno", "Bella is waiting near the north path. Move with the joystick or WASD.", 3.8);
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
