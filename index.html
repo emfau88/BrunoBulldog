@@ -71,12 +71,12 @@
       width: 100%;
       justify-self: center;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr auto auto;
       gap: 8px;
       align-items: start;
     }
 
-    .comfort, .questChip, .fullscreenBtn, .prompt, .dialog, .completeCard {
+    .comfort, .questChip, .fullscreenBtn, .prompt, .dialog, .completeCard, .levelCard {
       border: 2px solid var(--panel-edge);
       background: var(--panel);
       box-shadow: 0 4px 0 rgba(91, 64, 38, 0.26);
@@ -232,7 +232,7 @@
       font-size: 12px;
     }
 
-    .complete {
+    .complete, .levelMenu {
       position: fixed;
       inset: 0;
       display: none;
@@ -243,15 +243,16 @@
     }
 
     .complete.show { display: grid; }
+    .levelMenu.show { display: grid; }
 
-    .completeCard {
+    .completeCard, .levelCard {
       width: min(92vw, 430px);
       border-radius: 8px;
       padding: 20px;
       text-align: center;
     }
 
-    .completeCard h1 {
+    .completeCard h1, .levelCard h2 {
       margin: 0 0 8px;
       font-size: 28px;
       line-height: 1.05;
@@ -259,13 +260,19 @@
       letter-spacing: 0;
     }
 
-    .completeCard p {
+    .completeCard p, .levelCard p {
       margin: 0 0 16px;
       font-weight: 700;
       line-height: 1.3;
     }
 
-    .playAgain {
+    .levelChoices {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .playAgain, .levelOption {
       appearance: none;
       border: 3px solid var(--button-dark);
       border-radius: 8px;
@@ -275,6 +282,10 @@
       font-weight: 1000;
       font-size: 16px;
       box-shadow: 0 5px 0 rgba(91, 64, 38, 0.42);
+    }
+
+    .levelOption.secondary {
+      background: #f2bf54;
     }
 
     @media (hover: hover) and (pointer: fine) {
@@ -300,6 +311,7 @@
     <div class="topBar">
       <div class="comfort" id="comfort">♥ ♥ ♥</div>
       <div class="questChip" id="questText">Find Bella in the park</div>
+      <button class="fullscreenBtn" id="menuBtn" type="button" aria-label="Select level" title="Select level">LVL</button>
       <button class="fullscreenBtn" id="fullscreenBtn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">FS</button>
     </div>
     <div></div>
@@ -318,9 +330,20 @@
 
   <div class="complete" id="complete">
     <div class="completeCard">
-      <h1>Quest Complete</h1>
-      <p>Bella has her golden bone back. Bruno's sniffer saved the day.</p>
+      <h1 id="completeTitle">Quest Complete</h1>
+      <p id="completeText">Bella has her golden bone back. Bruno's sniffer saved the day.</p>
       <button class="playAgain" id="playAgain">Play Again</button>
+    </div>
+  </div>
+
+  <div class="levelMenu" id="levelMenu">
+    <div class="levelCard">
+      <h2>Select Level</h2>
+      <p>Jump straight into Bruno's current cases.</p>
+      <div class="levelChoices">
+        <button class="levelOption secondary" data-level="1" type="button">Level 1<br>Golden Bone</button>
+        <button class="levelOption" data-level="2" type="button">Level 2<br>Cat Plot</button>
+      </div>
     </div>
   </div>
 
@@ -334,6 +357,10 @@
       const promptEl = document.getElementById("prompt");
       const dialogEl = document.getElementById("dialog");
       const completeEl = document.getElementById("complete");
+      const completeTitle = document.getElementById("completeTitle");
+      const completeText = document.getElementById("completeText");
+      const levelMenu = document.getElementById("levelMenu");
+      const menuBtn = document.getElementById("menuBtn");
       const stickEl = document.getElementById("stick");
       const nubEl = document.getElementById("nub");
       const fullscreenBtn = document.getElementById("fullscreenBtn");
@@ -395,6 +422,11 @@
           pathStones: "assets/props/path-stones.png",
           grassTuft: "assets/props/grass-tuft.png",
           lanternPost: "assets/props/lantern-post.png",
+          catBlocker: "assets/props/cat-blocker.png",
+          fishTreat: "assets/props/fish-treat.png",
+          cardboardBox: "assets/props/cardboard-box.png",
+          bellToy: "assets/props/bell-toy.png",
+          catMeeting: "assets/props/cat-meeting.png",
           grassPlain: "assets/tiles/grass-plain.png",
           grassBlades: "assets/tiles/grass-blades.png",
           grassDarkTile: "assets/tiles/grass-dark.png",
@@ -467,16 +499,22 @@
       };
 
       const camera = { x: 0, y: 0 };
+      let currentLevel = 1;
       const questState = {
         id: "lost_bone",
         state: "not_started",
         clues: new Set(),
-        hasBone: false
+        hasBone: false,
+        hasFish: false,
+        hasBox: false,
+        hasBell: false
       };
 
       const mapTiles = Array.from({ length: MAP_H }, () => Array.from({ length: MAP_W }, () => "grass"));
       const collisionObjects = [];
       const particles = [];
+      const npcs = [];
+      const interactables = [];
       let dialogTimer = 0;
       let sniffTimer = 0;
       let sniffCooldown = 0;
@@ -522,7 +560,15 @@
         }
       }
 
-      function buildMap() {
+      function clearWorld() {
+        for (let y = 0; y < MAP_H; y++) {
+          for (let x = 0; x < MAP_W; x++) mapTiles[y][x] = "grass";
+        }
+        collisionObjects.length = 0;
+      }
+
+      function buildLevel1Map() {
+        clearWorld();
         fillTiles(8, 0, 4, MAP_H, "path");
         fillTiles(0, 26, MAP_W, 3, "path");
         fillTiles(5, 5, 9, 3, "path");
@@ -565,17 +611,75 @@
         tileRect(15, 22, 1, 1, "gate");
       }
 
-      const npcs = [{
-        id: "bella",
-        name: "Bella",
-        x: 10 * TILE + 16,
-        y: 6 * TILE + 16,
-        r: 12,
-        prompt: "Talk"
-      }];
+      function buildLevel2Map() {
+        clearWorld();
+        fillTiles(8, 0, 4, MAP_H, "path");
+        fillTiles(0, 28, MAP_W, 4, "path");
+        fillTiles(3, 22, 14, 3, "path");
+        fillTiles(2, 14, 6, 3, "path");
+        fillTiles(12, 14, 6, 3, "path");
+        fillTiles(14, 24, 4, 3, "path");
+        fillTiles(3, 7, 14, 2, "path");
+        fillTiles(1, 5, 5, 5, "house");
+        fillTiles(14, 5, 4, 4, "house");
+        fillTiles(1, 18, 4, 3, "doghouse");
+        fillTiles(2, 11, 4, 2, "water");
+        fillTiles(2, 12, 4, 1, "bridge");
+        fillTiles(8, 2, 4, 3, "garden");
+        fillTiles(7, 2, 6, 1, "fence");
+        fillTiles(7, 5, 6, 1, "fence");
+        fillTiles(7, 2, 1, 4, "fence");
+        fillTiles(12, 2, 1, 4, "fence");
+        setTile(10, 5, "gate");
+        for (const p of [[6,5],[13,10],[5,20],[16,20],[3,25],[18,27]]) setTile(p[0], p[1], "bush");
+        for (const p of [[4,13],[5,13],[15,13],[16,13],[6,23],[13,23],[2,27],[17,27]]) setTile(p[0], p[1], "flowers");
+        for (const p of [[6,15],[14,15],[5,24],[17,25]]) setTile(p[0], p[1], "crate");
+        for (const p of [[3,17],[16,17],[13,25]]) setTile(p[0], p[1], "barrel");
+        tileRect(1, 5, 5, 5, "house");
+        tileRect(14, 5, 4, 4, "house");
+        tileRect(1, 18, 4, 3, "house");
+        tileRect(2, 11, 4, 1, "water");
+        tileRect(7, 2, 6, 1, "fence");
+        tileRect(7, 5, 3, 1, "fence");
+        tileRect(11, 5, 2, 1, "fence");
+        tileRect(7, 2, 1, 4, "fence");
+        tileRect(12, 2, 1, 4, "fence");
+      }
 
-      const interactables = [
-        {
+      function buildMap() {
+        if (currentLevel === 2) buildLevel2Map();
+        else buildLevel1Map();
+      }
+
+      function makeBella(x, y, patrol = null) {
+        return {
+          id: "bella",
+          name: "Bella",
+          x,
+          y,
+          homeX: x,
+          homeY: y,
+          r: 12,
+          prompt: "Talk",
+          speed: 34,
+          dir: "down",
+          moving: false,
+          wait: 0.7,
+          patrolIndex: 0,
+          patrol
+        };
+      }
+
+      function setupLevel1Entities() {
+        npcs.length = 0;
+        interactables.length = 0;
+        npcs.push(makeBella(10 * TILE + 16, 6 * TILE + 16, [
+          { x: 10 * TILE + 16, y: 6 * TILE + 16 },
+          { x: 10 * TILE + 16, y: 8 * TILE + 8 },
+          { x: 9 * TILE + 8, y: 8 * TILE + 8 },
+          { x: 10 * TILE + 16, y: 7 * TILE + 4 }
+        ]));
+        interactables.push({
           id: "clue_sign",
           kind: "clue",
           clueId: "clue_1",
@@ -585,8 +689,7 @@
           y: 8 * TILE + 16,
           found: false,
           text: "The sign is scratched with tiny tooth marks. Bella's bone rolled past the pond."
-        },
-        {
+        }, {
           id: "clue_print",
           kind: "clue",
           clueId: "clue_2",
@@ -596,8 +699,7 @@
           y: 15 * TILE + 16,
           found: false,
           text: "A muddy paw print points from the flower bed toward the doghouse."
-        },
-        {
+        }, {
           id: "clue_stick",
           kind: "clue",
           clueId: "clue_3",
@@ -607,8 +709,7 @@
           y: 19 * TILE + 16,
           found: false,
           text: "This chewed stick smells like Bella and fresh garden dirt."
-        },
-        {
+        }, {
           id: "final_dig",
           kind: "dig",
           prompt: "Dig",
@@ -616,20 +717,36 @@
           y: 25 * TILE + 16,
           dug: false,
           text: "Bruno digs with heroic little paws and finds Bella's golden bone."
-        },
-        {
+        }, {
           id: "garden_gate",
           kind: "gate",
           prompt: "Use",
           x: 15 * TILE + 16,
           y: 22 * TILE + 16,
           text: "The garden gate is locked. Bruno needs the whole scent trail first."
-        }
-      ];
+        });
+      }
 
-      buildMap();
+      function setupLevel2Entities() {
+        npcs.length = 0;
+        interactables.length = 0;
+        npcs.push(makeBella(10 * TILE + 14, 29 * TILE + 4));
+        const cat1Block = rect(9 * TILE + 11, 21 * TILE + 8, 42, 42, "cat_1");
+        const cat2Block = rect(5 * TILE + 11, 13 * TILE + 8, 42, 42, "cat_2");
+        const cat3Block = rect(9 * TILE + 11, 6 * TILE + 8, 42, 42, "cat_final");
+        interactables.push(
+          { id: "fish_treat", kind: "item", item: "fish", prompt: "Take", x: 4 * TILE + 16, y: 15 * TILE + 16, collected: false, text: "Bruno finds a suspiciously powerful fish smell." },
+          { id: "cat_1", kind: "cat", requires: "fish", blocker: cat1Block, prompt: "Distract", x: 10 * TILE + 16, y: 22 * TILE + 16, moved: false, text: "The cat accepts the fish with the dignity of a tiny park official." },
+          { id: "cardboard_box", kind: "item", item: "box", prompt: "Take", x: 15 * TILE + 16, y: 15 * TILE + 16, collected: false, text: "A perfect cardboard box. No cat can resist this architecture." },
+          { id: "cat_2", kind: "cat", requires: "box", blocker: cat2Block, prompt: "Distract", x: 6 * TILE + 16, y: 14 * TILE + 16, moved: false, text: "The cat relocates into the box and immediately claims ownership." },
+          { id: "bell_toy", kind: "item", item: "bell", prompt: "Take", x: 17 * TILE + 16, y: 25 * TILE + 16, collected: false, text: "A tiny bell toy. It jingles like forbidden knowledge." },
+          { id: "cat_final", kind: "cat", requires: "bell", blocker: cat3Block, prompt: "Distract", x: 10 * TILE + 16, y: 7 * TILE + 16, moved: false, text: "The final cat follows the bell, pretending this was its plan all along." },
+          { id: "cat_meeting", kind: "meeting", prompt: "Inspect", x: 10 * TILE + 16, y: 3 * TILE + 22, found: false, text: "The cats were not plotting. They were guarding shiny things from squirrels. Probably." }
+        );
+      }
 
       function updateQuestAfterClue() {
+        if (currentLevel !== 1) return;
         const n = questState.clues.size;
         if (n === 1) questState.state = "clue_1_found";
         if (n === 2) questState.state = "clue_2_found";
@@ -643,6 +760,25 @@
       }
 
       function questObjective() {
+        if (currentLevel === 2) {
+          const bella = npcs[0];
+          if (questState.state === "not_started") return { text: "Ask Bella about the cats", target: bella };
+          if (questState.state === "completed") return { text: "Cat conspiracy solved", target: interactables.find(i => i.id === "cat_meeting") || bella };
+          const fish = interactables.find(i => i.id === "fish_treat");
+          const cat1 = interactables.find(i => i.id === "cat_1");
+          const box = interactables.find(i => i.id === "cardboard_box");
+          const cat2 = interactables.find(i => i.id === "cat_2");
+          const bell = interactables.find(i => i.id === "bell_toy");
+          const finalCat = interactables.find(i => i.id === "cat_final");
+          const meeting = interactables.find(i => i.id === "cat_meeting");
+          if (!questState.hasFish) return { text: "Find the fish smell", target: fish };
+          if (!cat1.moved) return { text: "Distract the first cat", target: cat1 };
+          if (!questState.hasBox) return { text: "Find a cardboard box", target: box };
+          if (!cat2.moved) return { text: "Distract the box-loving cat", target: cat2 };
+          if (!questState.hasBell) return { text: "Find the bell toy", target: bell };
+          if (!finalCat.moved) return { text: "Distract the final cat", target: finalCat };
+          return { text: "Inspect the cat meeting", target: meeting };
+        }
         if (questState.state === "not_started") return { text: "Find Bella in the park", target: npcs[0] };
         if (questState.state === "completed") return { text: "Quest complete", target: npcs[0] };
         if (questState.hasBone) return { text: "Return the golden bone to Bella", target: npcs[0] };
@@ -666,25 +802,76 @@
         dialogTimer = 0;
       }
 
-      function resetGame() {
-        player.x = 10 * TILE + 16;
-        player.y = 29 * TILE + 12;
+      function showComplete(title, text, buttonText) {
+        completeTitle.textContent = title;
+        completeText.textContent = text;
+        playAgain.textContent = buttonText;
+        completeEl.classList.add("show");
+      }
+
+      function startLevel(level) {
+        currentLevel = level;
+        buildMap();
+        if (currentLevel === 2) setupLevel2Entities();
+        else setupLevel1Entities();
+        player.x = currentLevel === 2 ? 10 * TILE + 16 : 10 * TILE + 16;
+        player.y = currentLevel === 2 ? 30 * TILE : 29 * TILE + 12;
         player.dir = "up";
         player.action = "";
         player.actionT = 0;
+        for (const npc of npcs) {
+          npc.x = npc.homeX;
+          npc.y = npc.homeY;
+          npc.dir = "down";
+          npc.moving = false;
+          npc.wait = 0.7;
+          npc.patrolIndex = 0;
+        }
+        questState.id = currentLevel === 2 ? "cat_conspiracy" : "lost_bone";
         questState.state = "not_started";
         questState.clues = new Set();
         questState.hasBone = false;
+        questState.hasFish = false;
+        questState.hasBox = false;
+        questState.hasBell = false;
         for (const i of interactables) {
           i.found = false;
           i.dug = false;
+          i.collected = false;
+          i.moved = false;
+          if (i.blocker) i.blocker.open = false;
         }
         const gate = collisionObjects.find(o => o.type === "gate");
         if (gate) gate.open = false;
-        setTile(15, 22, "gate");
+        if (currentLevel === 1) setTile(15, 22, "gate");
         particles.length = 0;
+        sniffTimer = 0;
+        sniffCooldown = 0;
+        nearest = null;
         completeEl.classList.remove("show");
+        levelMenu.classList.remove("show");
         hideDialog();
+        if (currentLevel === 2) {
+          showDialog("Bella", "Bruno, the park has a cat problem. They are sitting on every important sniffing spot.", 4);
+        } else {
+          showDialog("Bruno", "Bella is waiting near the north path. Move with the joystick or WASD.", 3.8);
+        }
+      }
+
+      function handleCompleteButton() {
+        if (currentLevel === 1 && questState.state === "completed") startLevel(2);
+        else startLevel(1);
+      }
+
+      function toggleLevelMenu(ev) {
+        ev.preventDefault();
+        levelMenu.classList.toggle("show");
+      }
+
+      function selectLevel(ev) {
+        const button = ev.target.closest("[data-level]");
+        if (!button) return;
+        startLevel(Number(button.dataset.level));
       }
 
       function distance(a, b) {
@@ -698,6 +885,9 @@
           if (item.kind === "clue" && questState.clues.has(item.clueId)) continue;
           if (item.kind === "dig" && (questState.state !== "gate_open" || item.dug)) continue;
           if (item.kind === "gate" && questState.state === "gate_open") continue;
+          if (item.kind === "item" && item.collected) continue;
+          if (item.kind === "cat" && item.moved) continue;
+          if (item.kind === "meeting" && !interactables.find(i => i.id === "cat_final")?.moved) continue;
           options.push({ type: item.kind, entity: item, dist: distance(player, item) });
         }
         options.sort((a, b) => a.dist - b.dist);
@@ -712,6 +902,15 @@
         player.action = nearest.type === "dig" ? "dig" : "sniff";
         player.actionT = 0.35;
         if (nearest.type === "npc") {
+          if (currentLevel === 2) {
+            if (questState.state === "not_started") {
+              questState.state = "need_fish";
+              showDialog("Bella", "They look organized. Start with fish smell, then boxes. Cats respect procedures.", 3.8);
+            } else {
+              showDialog("Bella", "No fighting, Bruno. Outsmart them with smells and suspiciously good objects.", 3.2);
+            }
+            return;
+          }
           if (questState.state === "not_started") {
             questState.state = "started";
             showDialog("Bella", "Bruno, my golden bone is missing. Can your big sniff find it?");
@@ -720,7 +919,7 @@
             questState.hasBone = false;
             showDialog("Bella", "You found it! Best nose in the whole park.", 2.4);
             audio.beep("complete");
-            setTimeout(() => completeEl.classList.add("show"), 700);
+            setTimeout(() => showComplete("Level 1 Complete", "Bella has her golden bone back. Now the cats are acting suspicious.", "Next Level"), 700);
           } else {
             const clueCount = questState.clues.size;
             showDialog("Bella", clueCount < 3 ? "Try sniffing near the pond, flowers, and doghouse." : "That garden smells suspicious. Try digging there.");
@@ -744,6 +943,47 @@
         }
         if (nearest.type === "gate") {
           showDialog("Gate", entity.text);
+        }
+        if (nearest.type === "item") {
+          entity.collected = true;
+          if (entity.item === "fish") {
+            questState.hasFish = true;
+            questState.state = "has_fish";
+          }
+          if (entity.item === "box") {
+            questState.hasBox = true;
+            questState.state = "has_box";
+          }
+          if (entity.item === "bell") {
+            questState.hasBell = true;
+            questState.state = "has_bell";
+          }
+          showDialog("Bruno", entity.text);
+          spawnSparkles(entity.x, entity.y, 16, COLORS.scent);
+          return;
+        }
+        if (nearest.type === "cat") {
+          const hasRequired = entity.requires === "fish" ? questState.hasFish : entity.requires === "box" ? questState.hasBox : questState.hasBell;
+          if (!hasRequired) {
+            const hint = entity.requires === "fish" ? "This cat smells like it wants fish." : entity.requires === "box" ? "This cat is clearly thinking about cardboard." : "This one needs something that jingles.";
+            showDialog("Cat", "Miau. " + hint, 3);
+            return;
+          }
+          entity.moved = true;
+          if (entity.blocker) entity.blocker.open = true;
+          if (entity.id === "cat_1") questState.state = "cat_1_moved";
+          if (entity.id === "cat_2") questState.state = "cat_2_moved";
+          if (entity.id === "cat_final") questState.state = "final_cat_moved";
+          showDialog("Cat", entity.text, 3.2);
+          spawnSparkles(entity.x, entity.y, 18, "#f7df83");
+          return;
+        }
+        if (nearest.type === "meeting") {
+          entity.found = true;
+          questState.state = "completed";
+          showDialog("Bruno", entity.text, 3.2);
+          audio.beep("complete");
+          setTimeout(() => showComplete("Cat Conspiracy Solved", "The cats were dramatic, not dangerous. Bruno remains suspicious.", "Play Again"), 800);
         }
       }
 
@@ -831,10 +1071,44 @@
         if (!collides(player.x, ny)) player.y = ny;
       }
 
+      function updateNpcs(dt) {
+        for (const npc of npcs) {
+          if (!npc.patrol || npc.patrol.length === 0) continue;
+          if (nearest && nearest.entity === npc) {
+            npc.moving = false;
+            continue;
+          }
+          if (npc.wait > 0) {
+            npc.wait -= dt;
+            npc.moving = false;
+            continue;
+          }
+          const target = npc.patrol[npc.patrolIndex];
+          const dx = target.x - npc.x;
+          const dy = target.y - npc.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 1.5) {
+            npc.x = target.x;
+            npc.y = target.y;
+            npc.patrolIndex = (npc.patrolIndex + 1) % npc.patrol.length;
+            npc.wait = 0.8 + (npc.patrolIndex % 2) * 0.35;
+            npc.moving = false;
+            return;
+          }
+          const step = Math.min(npc.speed * dt, dist);
+          npc.x += dx / dist * step;
+          npc.y += dy / dist * step;
+          npc.moving = true;
+          if (Math.abs(dx) > Math.abs(dy)) npc.dir = dx > 0 ? "right" : "left";
+          else npc.dir = dy > 0 ? "down" : "up";
+        }
+      }
+
       function update(dt) {
         resizeGameCanvas();
-        if (completeEl.classList.contains("show")) return;
+        if (completeEl.classList.contains("show") || levelMenu.classList.contains("show")) return;
         movePlayer(dt);
+        updateNpcs(dt);
         if (input.sniffQueued) {
           input.sniffQueued = false;
           sniff();
@@ -900,8 +1174,10 @@
           const key = tileVariant(tx, ty, ["pathPlain", "pathPlain", "pathPlain", "pathPebbles"]);
           if (drawTileImage(key, x, y)) return;
         } else if (type === "water") {
-          const key = tileVariant(tx, ty, ["waterPlain", "waterRipple", "waterPlain", "waterLily"]);
+          const waterFrame = Math.floor(performance.now() / 620 + tx * 0.7 + ty * 0.4) % 5;
+          const key = waterFrame === 1 ? "waterRipple" : waterFrame === 3 && (tx + ty) % 3 === 0 ? "waterLily" : "waterPlain";
           if (drawTileImage(key, x, y)) {
+            drawWaterMotion(tx, ty, x, y);
             ctx.strokeStyle = "rgba(40, 116, 132, 0.38)";
             ctx.lineWidth = 1;
             const n = {
@@ -931,7 +1207,10 @@
           const baseKey = type === "dirt" ? "pathPebbles" : tileVariant(tx, ty, ["grassPlain", "grassPlain", "grassBlades"]);
           if (drawTileImage(baseKey, x, y)) return;
         } else if (type === "flowers") {
-          if (drawTileImage("grassFlowersTile", x, y)) return;
+          if (drawTileImage("grassFlowersTile", x, y)) {
+            drawFlowerMotion(tx, ty, x, y);
+            return;
+          }
         } else if (type === "bush") {
           if (drawTileImage("grassPlain", x, y)) return;
         } else if (type === "house" || type === "doghouse" || type === "crate" || type === "barrel" || type === "sign" || type === "gate") {
@@ -1078,6 +1357,34 @@
       function tileVariant(tx, ty, keys) {
         const n = Math.abs((tx * 73856093 ^ ty * 19349663) >>> 0);
         return keys[n % keys.length];
+      }
+
+      function drawWaterMotion(tx, ty, x, y) {
+        const t = performance.now() / 420 + tx * 0.8 + ty * 0.5;
+        ctx.save();
+        ctx.globalAlpha = 0.22 + Math.sin(t) * 0.08;
+        ctx.strokeStyle = "#d2f3f0";
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 2; i++) {
+          const yy = y + 10 + i * 11 + Math.sin(t + i) * 1.2;
+          ctx.beginPath();
+          ctx.moveTo(x + 4, yy);
+          ctx.quadraticCurveTo(x + 11, yy - 3, x + 18, yy);
+          ctx.quadraticCurveTo(x + 25, yy + 3, x + 30, yy);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawFlowerMotion(tx, ty, x, y) {
+        const t = performance.now() / 520 + tx * 1.3 + ty * 0.9;
+        const lift = Math.sin(t) > 0.35 ? -1 : 0;
+        ctx.save();
+        ctx.globalAlpha = 0.35 + Math.max(0, Math.sin(t)) * 0.25;
+        ctx.fillStyle = "#fff0a8";
+        ctx.fillRect(x + 10, y + 13 + lift, 2, 2);
+        ctx.fillRect(x + 22, y + 20 - lift, 2, 2);
+        ctx.restore();
       }
 
       function drawTileImage(key, x, y) {
@@ -1248,6 +1555,7 @@
           ctx.arc(s.x, s.y, 18 + Math.sin(performance.now() / 120) * 3, 0, Math.PI * 2);
           ctx.fill();
         }
+        drawAmbientScent(item, s);
         if (item.id === "clue_sign") {
           if (drawPropAsset("scratchedSign", s.x, s.y - 5, 34, 36)) return;
           ctx.fillStyle = "#8d5d36";
@@ -1281,6 +1589,86 @@
         }
       }
 
+      function drawLevel2Interactable(item) {
+        if ((item.kind === "item" && item.collected) || (item.kind === "cat" && item.moved)) return;
+        if (item.kind === "meeting" && !interactables.find(i => i.id === "cat_final")?.moved) return;
+        const s = worldToScreen(item.x, item.y);
+        if (item.kind === "item") {
+          const asset = item.item === "fish" ? "fishTreat" : item.item === "box" ? "cardboardBox" : "bellToy";
+          const size = item.item === "box" ? [46, 42] : item.item === "fish" ? [42, 34] : [38, 38];
+          drawAmbientScent(item, s);
+          if (drawPropAsset(asset, s.x, s.y, size[0], size[1], { shadowY: 10 })) return;
+          drawFallbackItem(item.item, s.x, s.y);
+          return;
+        }
+        if (item.kind === "cat") {
+          const bob = Math.sin(performance.now() / 360 + item.x * 0.03) * 1.2;
+          if (drawPropAsset("catBlocker", s.x, s.y + bob, 48, 48, { shadowY: 14 })) return;
+          drawFallbackCat(s.x, s.y + bob);
+          return;
+        }
+        if (item.kind === "meeting") {
+          if (drawPropAsset("catMeeting", s.x, s.y, 70, 58, { shadowY: 14 })) return;
+          drawFallbackMeeting(s.x, s.y);
+        }
+      }
+
+      function drawFallbackItem(type, x, y) {
+        if (type === "fish") {
+          ctx.fillStyle = "#5ba3be";
+          ctx.beginPath();
+          ctx.ellipse(x, y, 18, 9, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#3d819d";
+          ctx.beginPath();
+          ctx.moveTo(x + 15, y);
+          ctx.lineTo(x + 29, y - 10);
+          ctx.lineTo(x + 27, y + 10);
+          ctx.fill();
+        } else if (type === "box") {
+          drawRoundedRect(x - 20, y - 14, 40, 30, 4, "#c88646");
+          ctx.strokeStyle = "#704529";
+          ctx.strokeRect(x - 20, y - 14, 40, 30);
+        } else {
+          ctx.fillStyle = "#edc24e";
+          ctx.beginPath();
+          ctx.arc(x, y, 15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#7a4f28";
+          ctx.fillRect(x - 5, y + 10, 10, 6);
+        }
+      }
+
+      function drawFallbackCat(x, y) {
+        drawShadow(x, y + 13, 16, 5);
+        ctx.fillStyle = "#47484f";
+        ctx.beginPath();
+        ctx.arc(x, y - 10, 18, 0, Math.PI * 2);
+        ctx.arc(x, y + 8, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#2c2a2b";
+        ctx.beginPath();
+        ctx.moveTo(x - 13, y - 22);
+        ctx.lineTo(x - 8, y - 38);
+        ctx.lineTo(x - 2, y - 20);
+        ctx.moveTo(x + 13, y - 22);
+        ctx.lineTo(x + 8, y - 38);
+        ctx.lineTo(x + 2, y - 20);
+        ctx.fill();
+        ctx.fillStyle = "#f4d75c";
+        ctx.fillRect(x - 9, y - 13, 4, 4);
+        ctx.fillRect(x + 6, y - 13, 4, 4);
+      }
+
+      function drawFallbackMeeting(x, y) {
+        drawRoundedRect(x - 28, y - 18, 56, 36, 9, "#e0c987");
+        ctx.fillStyle = "#47484f";
+        ctx.beginPath();
+        ctx.arc(x - 13, y, 7, 0, Math.PI * 2);
+        ctx.arc(x + 13, y, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       function drawBone(x, y) {
         if (drawPropAsset("goldenBone", x, y, 34, 28, { shadowY: 9 })) return;
         ctx.fillStyle = COLORS.bone;
@@ -1297,7 +1685,27 @@
       }
 
       function drawDecorProps() {
-        const props = [
+        const props = currentLevel === 2 ? [
+          { key: "cottageProp", x: 3.4 * TILE, y: 7.2 * TILE, w: 82, h: 72 },
+          { key: "cottageProp", x: 16.0 * TILE, y: 6.8 * TILE, w: 76, h: 68 },
+          { key: "doghouseProp", x: 3.0 * TILE, y: 20.0 * TILE, w: 66, h: 58 },
+          { key: "treeCanopy", x: 2.0 * TILE, y: 25.0 * TILE, w: 62, h: 66 },
+          { key: "treeCanopy", x: 18.2 * TILE, y: 19.2 * TILE, w: 56, h: 60 },
+          { key: "treeCanopy", x: 6.7 * TILE, y: 5.0 * TILE, w: 54, h: 58 },
+          { key: "parkBench", x: 13.0 * TILE, y: 23.5 * TILE, w: 64, h: 43 },
+          { key: "pondReeds", x: 3.3 * TILE, y: 11.2 * TILE, w: 40, h: 38 },
+          { key: "bridgeRail", x: 3.9 * TILE, y: 12.45 * TILE, w: 106, h: 28, shadow: false },
+          { key: "pathStones", x: 6.5 * TILE, y: 23.3 * TILE, w: 44, h: 35 },
+          { key: "pathStones", x: 13.9 * TILE, y: 16.5 * TILE, w: 42, h: 33 },
+          { key: "grassTuft", x: 6.2 * TILE, y: 10.2 * TILE, w: 42, h: 27 },
+          { key: "grassTuft", x: 14.4 * TILE, y: 10.0 * TILE, w: 42, h: 27 },
+          { key: "lanternPost", x: 7.1 * TILE, y: 22.0 * TILE, w: 36, h: 50 },
+          { key: "lanternPost", x: 12.8 * TILE, y: 7.2 * TILE, w: 36, h: 50 },
+          { key: "flowerBushProp", x: 4.4 * TILE, y: 13.2 * TILE, w: 46, h: 29 },
+          { key: "flowerBushProp", x: 15.8 * TILE, y: 13.2 * TILE, w: 46, h: 29 },
+          { key: "crateBarrelProp", x: 6.0 * TILE, y: 15.5 * TILE, w: 52, h: 35 },
+          { key: "crateBarrelProp", x: 16.2 * TILE, y: 17.3 * TILE, w: 52, h: 35 }
+        ] : [
           { key: "cottageProp", x: 3.5 * TILE, y: 4.0 * TILE, w: 86, h: 76 },
           { key: "cottageProp", x: 15.5 * TILE, y: 5.0 * TILE, w: 86, h: 76 },
           { key: "doghouseProp", x: 3.0 * TILE, y: 17.4 * TILE, w: 70, h: 62 },
@@ -1324,15 +1732,22 @@
           { key: "crateBarrelProp", x: 14.7 * TILE, y: 13.5 * TILE, w: 56, h: 38 }
         ];
         for (const p of props) {
-          const s = worldToScreen(p.x, p.y);
+          const sway = p.key === "treeCanopy" ? Math.sin(performance.now() / 900 + p.x * 0.03) * 1.4 : 0;
+          const s = worldToScreen(p.x + sway, p.y + (p.key === "treeCanopy" ? Math.sin(performance.now() / 1200 + p.y * 0.02) * 0.8 : 0));
           drawPropAsset(p.key, s.x, s.y, p.w, p.h, { shadow: p.shadow });
+          if (p.key === "lanternPost") drawLanternGlow(s.x, s.y, p.w, p.h);
         }
 
-        drawGardenFence();
+        if (currentLevel === 1) drawGardenFence();
 
-        const gate = worldToScreen(15 * TILE + 16, 22 * TILE + 14);
-        const gateKey = questState.state === "gate_open" || questState.state === "bone_found" || questState.state === "completed" ? "openGate" : "closedGate";
-        drawPropAsset(gateKey, gate.x, gate.y - 4, gateKey === "openGate" ? 58 : 64, 45);
+        if (currentLevel === 1) {
+          const gate = worldToScreen(15 * TILE + 16, 22 * TILE + 14);
+          const gateKey = questState.state === "gate_open" || questState.state === "bone_found" || questState.state === "completed" ? "openGate" : "closedGate";
+          drawPropAsset(gateKey, gate.x, gate.y - 4, gateKey === "openGate" ? 58 : 64, 45);
+        } else {
+          const gate = worldToScreen(10 * TILE + 16, 5 * TILE + 14);
+          drawPropAsset("openGate", gate.x, gate.y - 4, 54, 42);
+        }
       }
 
       function drawGardenFence() {
@@ -1378,6 +1793,33 @@
         ctx.restore();
       }
 
+      function drawLanternGlow(x, y, w, h) {
+        const t = performance.now() / 190 + x * 0.07;
+        const pulse = 0.45 + Math.sin(t) * 0.12 + Math.sin(t * 0.37) * 0.08;
+        const gx = x + w * 0.08;
+        const gy = y - h * 0.2;
+        const r = 11 + pulse * 5;
+        const gradient = ctx.createRadialGradient(gx, gy, 1, gx, gy, r);
+        gradient.addColorStop(0, "rgba(255, 231, 125, 0.5)");
+        gradient.addColorStop(1, "rgba(255, 231, 125, 0)");
+        ctx.save();
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(gx, gy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function drawAmbientScent(item, s) {
+        const d = Math.hypot(player.x - item.x, player.y - item.y);
+        if (d > 140 && sniffTimer <= 0) return;
+        const t = performance.now() / 640 + item.x * 0.01;
+        const alpha = sniffTimer > 0 ? 0.42 : Math.max(0, Math.sin(t)) * 0.22;
+        if (alpha <= 0.03) return;
+        const drift = Math.sin(t * 1.7) * 4;
+        drawPropAsset("scentSwirl", s.x + drift, s.y - 22 - Math.cos(t) * 5, 20, 20, { shadow: false, alpha });
+      }
+
       function drawQuestFeedback() {
         const target = questObjective().target;
         if (!target) return;
@@ -1395,8 +1837,10 @@
         if (nearest && nearest.entity === target) return;
         if (questState.state !== "completed" && (sniffTimer > 0 || questState.state === "not_started")) {
           const s = worldToScreen(target.x, target.y - 28);
-          const bob = Math.sin(performance.now() / 180) * 2;
-          drawPropAsset("questMarker", s.x, s.y + bob, 28, 30, { shadow: false, alpha: 0.92 });
+          const t = performance.now() / 180;
+          const bob = Math.sin(t) * 2.5;
+          const scale = 1 + Math.max(0, Math.sin(t * 0.7)) * 0.06;
+          drawPropAsset("questMarker", s.x, s.y + bob, 28 * scale, 30 * scale, { shadow: false, alpha: 0.82 + Math.sin(t * 0.5) * 0.08 });
         }
       }
 
@@ -1406,27 +1850,29 @@
           for (let x = 0; x < MAP_W; x++) drawTile(x, y, mapTiles[y][x]);
         }
         drawDecorProps();
-        for (const item of interactables.filter(i => i.kind === "clue")) drawClue(item);
-        const dig = interactables.find(i => i.id === "final_dig");
-        const digS = worldToScreen(dig.x, dig.y);
-        if (!dig.dug) {
-          ctx.fillStyle = questState.state === "gate_open" && sniffTimer > 0 ? "rgba(255,229,138,0.5)" : "rgba(0,0,0,0)";
-          ctx.beginPath();
-          ctx.arc(digS.x, digS.y, 22, 0, Math.PI * 2);
-          ctx.fill();
-          if (!drawPropAsset("digHoleProp", digS.x, digS.y, 40, 30, { shadowY: 9 })) {
-            ctx.fillStyle = "#8c5f39";
-            ctx.fillRect(digS.x - 13, digS.y - 7, 26, 13);
-            ctx.fillStyle = "#c29055";
-            ctx.fillRect(digS.x - 8, digS.y - 3, 16, 3);
+        if (currentLevel === 1) {
+          for (const item of interactables.filter(i => i.kind === "clue")) drawClue(item);
+          const dig = interactables.find(i => i.id === "final_dig");
+          const digS = worldToScreen(dig.x, dig.y);
+          if (!dig.dug) {
+            ctx.fillStyle = questState.state === "gate_open" && sniffTimer > 0 ? "rgba(255,229,138,0.5)" : "rgba(0,0,0,0)";
+            ctx.beginPath();
+            ctx.arc(digS.x, digS.y, 22, 0, Math.PI * 2);
+            ctx.fill();
+            if (!drawPropAsset("digHoleProp", digS.x, digS.y, 40, 30, { shadowY: 9 })) {
+              ctx.fillStyle = "#8c5f39";
+              ctx.fillRect(digS.x - 13, digS.y - 7, 26, 13);
+              ctx.fillStyle = "#c29055";
+              ctx.fillRect(digS.x - 8, digS.y - 3, 16, 3);
+            }
           }
+        } else {
+          for (const item of interactables) drawLevel2Interactable(item);
         }
-        if (questState.hasBone) drawBone(digS.x, digS.y - 18);
-
         const actors = [
           ...npcs.map(n => ({ y: n.y, draw: () => {
             const s = worldToScreen(n.x, n.y);
-            if (!drawSpriteSheetCharacter("bellaSheet", s.x, s.y, { w: 56, h: 62, dir: "down", moving: false })) drawBella(s.x, s.y);
+            if (!drawSpriteSheetCharacter("bellaSheet", s.x, s.y, { w: 56, h: 62, dir: n.dir, moving: n.moving })) drawBella(s.x, s.y);
           }})),
           { y: player.y, draw: () => {
             const s = worldToScreen(player.x, player.y);
@@ -1522,8 +1968,9 @@
 
       window.__brunoDebug = {
         state: () => ({
+          level: currentLevel,
           player: { x: Math.round(player.x), y: Math.round(player.y), dir: player.dir, moving: player.moving },
-          quest: { state: questState.state, clues: questState.clues.size, hasBone: questState.hasBone },
+          quest: { state: questState.state, clues: questState.clues.size, hasBone: questState.hasBone, hasFish: questState.hasFish, hasBox: questState.hasBox, hasBell: questState.hasBell },
           nearest: nearest ? { type: nearest.type, id: nearest.entity.id, prompt: nearest.entity.prompt } : null,
           sniffCooldown: Number(sniffCooldown.toFixed(2)),
           particles: particles.length,
@@ -1551,6 +1998,11 @@
               "pathStones",
               "grassTuft",
               "lanternPost",
+              "catBlocker",
+              "fishTreat",
+              "cardboardBox",
+              "bellToy",
+              "catMeeting",
               "grassPlain",
               "grassBlades",
               "grassDarkTile",
@@ -1576,11 +2028,13 @@
       };
 
       fullscreenBtn.addEventListener("pointerdown", toggleFullscreen);
+      menuBtn.addEventListener("pointerdown", toggleLevelMenu);
+      levelMenu.addEventListener("pointerdown", selectLevel);
       document.addEventListener("fullscreenchange", updateFullscreenButton);
       document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
       sniffBtn.addEventListener("pointerdown", queueSniff);
       useBtn.addEventListener("pointerdown", queueUse);
-      playAgain.addEventListener("click", resetGame);
+      playAgain.addEventListener("click", handleCompleteButton);
 
       window.addEventListener("keydown", ev => {
         if (["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(ev.code)) ev.preventDefault();
@@ -1633,7 +2087,7 @@
       window.visualViewport?.addEventListener("resize", resizeGameCanvas);
       window.visualViewport?.addEventListener("scroll", resizeGameCanvas);
       resizeGameCanvas();
-      showDialog("Bruno", "Bella is waiting near the north path. Move with the joystick or WASD.", 3.8);
+      startLevel(1);
       requestAnimationFrame(loop);
     })();
   </script>
