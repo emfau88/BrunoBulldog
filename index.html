@@ -344,6 +344,7 @@
       <div class="levelChoices">
         <button class="levelOption secondary" data-level="1" type="button">Level 1<br>Golden Bone</button>
         <button class="levelOption" data-level="2" type="button">Level 2<br>Moon Garden</button>
+        <button class="levelOption" data-level="3" type="button">Level 3<br>Old Pavilion</button>
       </div>
     </div>
   </div>
@@ -433,6 +434,8 @@
           moonGardenShed: "assets/props/moon-garden-shed-v1.png",
           moonGardenLavenderTrail: "assets/props/moon-garden-lavender-trail-v1.png",
           moonGardenTippedPot: "assets/props/moon-garden-tipped-pot-v1.png",
+          pavilionFinal: "assets/props/pavilion-final-v1.png",
+          moonReflector: "assets/props/moon-reflector-v1.png",
           grassPlain: "assets/tiles/grass-plain.png",
           grassBlades: "assets/tiles/grass-blades.png",
           grassDarkTile: "assets/tiles/grass-dark.png",
@@ -650,8 +653,25 @@
         tileRect(11, 9, 9, 3, "brook");
       }
 
+      function buildLevel3Map() {
+        clearWorld();
+        fillTiles(0, 0, MAP_W, MAP_H, "grass");
+        // A strong centre axis: entrance, reflector, moon pond, then the pavilion.
+        fillTiles(8, 19, 4, 13, "path");
+        fillTiles(6, 22, 8, 3, "path");
+        fillTiles(8, 4, 4, 12, "path");
+        fillTiles(4, 2, 12, 4, "garden");
+        fillTiles(0, 16, 20, 3, "water");
+        for (const p of [[4,28],[15,28],[5,23],[14,23],[5,20],[14,20],[4,14],[15,14],[5,7],[14,7],[3,4],[16,4]]) setTile(p[0], p[1], "flowers");
+        for (const p of [[2,26],[17,26],[2,21],[17,21],[2,11],[17,11],[2,5],[17,5]]) { setTile(p[0], p[1], "bush"); tileRect(p[0], p[1], 1, 1, "birch"); }
+        // Water blocks the entire width; only the reflector can reveal the central stepping path.
+        tileRect(0, 16, 9, 3, "pond");
+        tileRect(11, 16, 9, 3, "pond");
+      }
+
       function buildMap() {
-        if (currentLevel === 2) buildLevel2Map();
+        if (currentLevel === 3) buildLevel3Map();
+        else if (currentLevel === 2) buildLevel2Map();
         else buildLevel1Map();
       }
 
@@ -744,6 +764,17 @@
         );
       }
 
+      function setupLevel3Entities() {
+        npcs.length = 0;
+        interactables.length = 0;
+        npcs.push(makeBella(10 * TILE + 14, 29 * TILE + 4));
+        const lightPath = rect(9 * TILE, 16 * TILE, 2 * TILE, 3 * TILE, "moon_steps");
+        interactables.push(
+          { id: "moon_reflector", kind: "reflector", blocker: lightPath, prompt: "Turn reflector", x: 10 * TILE + 16, y: 23 * TILE + 16, aligned: false, text: "The reflector catches moonlight and sends one clear beam to the pavilion. Follow the six glowing stepping stones across the pond!" },
+          { id: "pavilion_finale", kind: "meeting", prompt: "Join Bella", x: 10 * TILE + 16, y: 4 * TILE + 24, found: false, text: "Bella and the gardener light the old pavilion together. Bruno's final case badge shines like a tiny moon." }
+        );
+      }
+
       function updateQuestAfterClue() {
         if (currentLevel !== 1) return;
         const n = questState.clues.size;
@@ -759,7 +790,16 @@
       }
 
       function questObjective() {
-        if (currentLevel === 2) {
+        if (currentLevel === 3) {
+          const bella = npcs[0];
+          const reflector = interactables.find(i => i.id === "moon_reflector");
+          const finale = interactables.find(i => i.id === "pavilion_finale");
+          if (questState.state === "not_started") return { text: "Ask Bella about the pavilion light", target: bella };
+          if (questState.state === "completed") return { text: "Final case complete", target: finale || bella };
+          if (!reflector.aligned) return { text: "Align the moon reflector", target: reflector };
+          return { text: "Follow the silver steps to the pavilion", target: finale };
+        }
+        if (currentLevel === 2 || currentLevel === 3) {
           const bella = npcs[0];
           const scent = interactables.find(i => i.id === "scent_cross");
           const note = interactables.find(i => i.id === "garden_note");
@@ -805,10 +845,11 @@
       function startLevel(level) {
         currentLevel = level;
         buildMap();
-        if (currentLevel === 2) setupLevel2Entities();
+        if (currentLevel === 3) setupLevel3Entities();
+        else if (currentLevel === 2) setupLevel2Entities();
         else setupLevel1Entities();
-        player.x = currentLevel === 2 ? 10 * TILE + 16 : 10 * TILE + 16;
-        player.y = currentLevel === 2 ? 30 * TILE : 29 * TILE + 12;
+        player.x = 10 * TILE + 16;
+        player.y = currentLevel >= 2 ? 30 * TILE : 29 * TILE + 12;
         player.dir = "up";
         player.action = "";
         player.actionT = 0;
@@ -820,7 +861,7 @@
           npc.wait = 0.7;
           npc.patrolIndex = 0;
         }
-        questState.id = currentLevel === 2 ? "moon_garden" : "lost_bone";
+        questState.id = currentLevel === 3 ? "pavilion_light" : currentLevel === 2 ? "moon_garden" : "lost_bone";
         questState.state = "not_started";
         questState.clues = new Set();
         questState.hasBone = false;
@@ -844,7 +885,9 @@
         completeEl.classList.remove("show");
         levelMenu.classList.remove("show");
         hideDialog();
-        if (currentLevel === 2) {
+        if (currentLevel === 3) {
+          showDialog("Bella", "The moon charm points to the old pavilion. Its lantern will only wake when the pond catches moonlight.", 4);
+        } else if (currentLevel === 2) {
           showDialog("Bella", "This moon charm belongs to the old garden behind the park. The gate is open, but the gardener's scents split ahead.", 4);
         } else {
           showDialog("Bruno", "Bella is waiting near the north path. Move with the joystick or WASD.", 3.8);
@@ -853,6 +896,7 @@
 
       function handleCompleteButton() {
         if (currentLevel === 1 && questState.state === "completed") startLevel(2);
+        else if (currentLevel === 2 && questState.state === "completed") startLevel(3);
         else startLevel(1);
       }
 
@@ -880,7 +924,9 @@
           if (item.kind === "gate" && questState.state === "gate_open") continue;
           if ((item.kind === "scent" || item.kind === "note") && item.found) continue;
           if (item.kind === "pot" && item.moved) continue;
-          if (item.kind === "meeting" && !interactables.find(i => i.id === "tipped_pot")?.moved) continue;
+          if (item.kind === "reflector" && item.aligned) continue;
+          if (item.kind === "meeting" && currentLevel === 2 && !interactables.find(i => i.id === "tipped_pot")?.moved) continue;
+          if (item.kind === "meeting" && currentLevel === 3 && !interactables.find(i => i.id === "moon_reflector")?.aligned) continue;
           options.push({ type: item.kind, entity: item, dist: distance(player, item) });
         }
         options.sort((a, b) => a.dist - b.dist);
@@ -895,6 +941,15 @@
         player.action = nearest.type === "dig" ? "dig" : "sniff";
         player.actionT = 0.35;
         if (nearest.type === "npc") {
+          if (currentLevel === 3) {
+            if (questState.state === "not_started") {
+              questState.state = "need_reflector";
+              showDialog("Bella", "The old reflector is still on the lower path. Turn it toward the pond and watch for silver light.", 4);
+            } else {
+              showDialog("Bella", "The pavilion is waiting above the pond, Bruno.", 3);
+            }
+            return;
+          }
           if (currentLevel === 2) {
             if (questState.state === "not_started") {
               questState.state = "trail_started";
@@ -967,12 +1022,22 @@
           spawnSparkles(entity.x, entity.y, 18, "#f7df83");
           return;
         }
+        if (nearest.type === "reflector") {
+          entity.aligned = true;
+          if (entity.blocker) entity.blocker.open = true;
+          for (let y = 16; y <= 18; y++) for (let x = 9; x <= 10; x++) setTile(x, y, "moonBridge");
+          questState.state = "light_path_open";
+          showDialog("Bruno", entity.text, 3.6);
+          spawnSparkles(entity.x, entity.y, 22, "#fff0a8");
+          return;
+        }
         if (nearest.type === "meeting") {
           entity.found = true;
           questState.state = "completed";
           showDialog("Bruno", entity.text, 3.2);
           audio.beep("complete");
-          setTimeout(() => showComplete("Moon Garden Mystery Solved", "Bruno earns the Moon Garden case badge. The moon charm marks the next case.", "Play Again"), 800);
+          const level3 = currentLevel === 3;
+          setTimeout(() => showComplete(level3 ? "The Pavilion Light Returns" : "Moon Garden Mystery Solved", level3 ? "The moonlit park is glowing again. Bruno closes his very first casebook with a proud wag." : "Bruno earns the Moon Garden case badge. The moon charm marks the next case.", level3 ? "Play From Start" : "Next Level"), 800);
         }
       }
 
@@ -1725,6 +1790,24 @@
         }
       }
 
+      function drawLevel3Interactable(item) {
+        if (item.kind === "meeting" && !interactables.find(i => i.id === "moon_reflector")?.aligned) return;
+        const s = worldToScreen(item.x, item.y);
+        if (item.kind === "reflector") {
+          const pulse = item.aligned ? 0.96 + Math.sin(performance.now() / 180) * 0.04 : 0.82 + Math.sin(performance.now() / 260) * 0.12;
+          if (item.aligned) {
+            ctx.fillStyle = "rgba(255, 240, 162, 0.24)";
+            ctx.beginPath(); ctx.arc(s.x, s.y - 8, 34 + Math.sin(performance.now() / 210) * 3, 0, Math.PI * 2); ctx.fill();
+          }
+          if (drawPropAsset("moonReflector", s.x, s.y + 3, 64, 64, { shadowY: 12, alpha: pulse })) return;
+          return;
+        }
+        if (item.kind === "meeting") {
+          if (drawPropAsset("catMeeting", s.x, s.y, 72, 60, { shadowY: 14 })) return;
+          drawFallbackMeeting(s.x, s.y);
+        }
+      }
+
       function drawFallbackItem(type, x, y) {
         if (type === "fish") {
           ctx.fillStyle = "#5ba3be";
@@ -1797,7 +1880,19 @@
       }
 
       function drawDecorProps() {
-        const props = currentLevel === 2 ? [
+        const props = currentLevel === 3 ? [
+          { key: "pavilionFinal", x: 10 * TILE, y: 3.0 * TILE, w: 194, h: 180 },
+          { key: "treeCanopy", x: 2.1 * TILE, y: 27.5 * TILE, w: 66, h: 68 },
+          { key: "treeCanopy", x: 17.9 * TILE, y: 27.5 * TILE, w: 66, h: 68 },
+          { key: "treeCanopy", x: 2.0 * TILE, y: 11.5 * TILE, w: 66, h: 68 },
+          { key: "treeCanopy", x: 18.0 * TILE, y: 11.5 * TILE, w: 66, h: 68 },
+          { key: "pondReeds", x: 2.0 * TILE, y: 15.4 * TILE, w: 46, h: 38, shadow: false },
+          { key: "pondReeds", x: 18.0 * TILE, y: 15.4 * TILE, w: 46, h: 38, shadow: false },
+          { key: "lanternPost", x: 7.2 * TILE, y: 22.4 * TILE, w: 36, h: 50 },
+          { key: "lanternPost", x: 12.8 * TILE, y: 13.8 * TILE, w: 36, h: 50 },
+          { key: "flowerBushProp", x: 4.5 * TILE, y: 5.4 * TILE, w: 48, h: 32 },
+          { key: "flowerBushProp", x: 15.5 * TILE, y: 5.4 * TILE, w: 48, h: 32 }
+        ] : currentLevel === 2 ? [
           { key: "moonGardenGreenhouse", x: 10 * TILE, y: 16.2 * TILE, w: 196, h: 182 },
           { key: "moonGardenShed", x: 10 * TILE, y: 3.8 * TILE, w: 174, h: 164 },
           { key: "treeCanopy", x: 2.3 * TILE, y: 25.2 * TILE, w: 64, h: 66 },
@@ -1849,6 +1944,7 @@
         }
 
         if (currentLevel === 2) drawMoonGardenLife();
+        if (currentLevel === 3) drawPavilionLightPath();
 
         if (currentLevel === 1) drawGardenFence();
 
@@ -1936,6 +2032,39 @@
           ctx.fillStyle = "#fff3a8";
           ctx.beginPath(); ctx.arc(s.x, s.y, 1.7, 0, Math.PI * 2); ctx.fill();
         }
+      }
+
+      function drawPavilionLightPath() {
+        const reflector = interactables.find(i => i.id === "moon_reflector");
+        if (!reflector?.aligned) return;
+        ctx.save();
+        const source = worldToScreen(reflector.x, reflector.y - 20);
+        const target = worldToScreen(10 * TILE + 16, 4 * TILE + 30);
+        // One unbroken, softly widening beam makes the reflector's purpose unmistakable.
+        ctx.fillStyle = "rgba(255, 239, 160, 0.14)";
+        ctx.beginPath();
+        ctx.moveTo(source.x - 10, source.y);
+        ctx.lineTo(target.x - 52, target.y);
+        ctx.lineTo(target.x + 52, target.y);
+        ctx.lineTo(source.x + 10, source.y);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "rgba(255, 244, 190, 0.76)";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(source.x, source.y); ctx.lineTo(target.x, target.y); ctx.stroke();
+        ctx.strokeStyle = "rgba(255, 255, 221, 0.38)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(source.x - 8, source.y); ctx.lineTo(target.x - 38, target.y); ctx.moveTo(source.x + 8, source.y); ctx.lineTo(target.x + 38, target.y); ctx.stroke();
+        for (let ty = 16; ty <= 18; ty++) {
+          for (let tx = 9; tx <= 10; tx++) {
+            const s = worldToScreen(tx * TILE + 16, ty * TILE + 16);
+            ctx.fillStyle = "rgba(255, 244, 184, 0.34)";
+            ctx.beginPath(); ctx.arc(s.x, s.y, 17, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "rgba(255, 250, 205, 0.72)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.arc(s.x, s.y, 12, 0, Math.PI * 2); ctx.stroke();
+          }
+        }
+        ctx.restore();
       }
 
       function drawGardenFence() {
@@ -2067,7 +2196,7 @@
             }
           }
         } else {
-          for (const item of interactables) drawLevel2Interactable(item);
+          for (const item of interactables) (currentLevel === 3 ? drawLevel3Interactable : drawLevel2Interactable)(item);
         }
         drawWorldGrade();
         const actors = [
@@ -2230,7 +2359,9 @@
               "moonGardenGreenhouse",
               "moonGardenShed",
               "moonGardenLavenderTrail",
-              "moonGardenTippedPot"
+              "moonGardenTippedPot",
+              "pavilionFinal",
+              "moonReflector"
             ].every(key => !!assets.images[key]?.ready)
           }
         }),
