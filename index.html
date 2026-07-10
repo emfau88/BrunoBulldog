@@ -71,7 +71,7 @@
       width: 100%;
       justify-self: center;
       display: grid;
-      grid-template-columns: auto 1fr auto auto;
+      grid-template-columns: auto 1fr auto auto auto;
       gap: 8px;
       align-items: start;
     }
@@ -312,6 +312,7 @@
       <div class="comfort" id="comfort">♥ ♥ ♥</div>
       <div class="questChip" id="questText">Find Bella in the park</div>
       <button class="fullscreenBtn" id="menuBtn" type="button" aria-label="Select level" title="Select level">LVL</button>
+      <button class="fullscreenBtn" id="sfxBtn" type="button" aria-label="Toggle sound" title="Toggle sound">SFX</button>
       <button class="fullscreenBtn" id="fullscreenBtn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">FS</button>
     </div>
     <div></div>
@@ -342,7 +343,7 @@
       <p>Jump straight into Bruno's current cases.</p>
       <div class="levelChoices">
         <button class="levelOption secondary" data-level="1" type="button">Level 1<br>Golden Bone</button>
-        <button class="levelOption" data-level="2" type="button">Level 2<br>Cat Plot</button>
+        <button class="levelOption" data-level="2" type="button">Level 2<br>Moon Garden</button>
       </div>
     </div>
   </div>
@@ -364,6 +365,7 @@
       const stickEl = document.getElementById("stick");
       const nubEl = document.getElementById("nub");
       const fullscreenBtn = document.getElementById("fullscreenBtn");
+      const sfxBtn = document.getElementById("sfxBtn");
       const sniffBtn = document.getElementById("sniffBtn");
       const useBtn = document.getElementById("useBtn");
       const playAgain = document.getElementById("playAgain");
@@ -427,6 +429,10 @@
           cardboardBox: "assets/props/cardboard-box.png",
           bellToy: "assets/props/bell-toy.png",
           catMeeting: "assets/props/cat-meeting.png",
+          moonGardenGreenhouse: "assets/props/moon-garden-greenhouse-v1.png",
+          moonGardenShed: "assets/props/moon-garden-shed-v1.png",
+          moonGardenLavenderTrail: "assets/props/moon-garden-lavender-trail-v1.png",
+          moonGardenTippedPot: "assets/props/moon-garden-tipped-pot-v1.png",
           grassPlain: "assets/tiles/grass-plain.png",
           grassBlades: "assets/tiles/grass-blades.png",
           grassDarkTile: "assets/tiles/grass-dark.png",
@@ -435,10 +441,10 @@
           pathPebbles: "assets/tiles/path-pebbles.png",
           pathGrassEdge: "assets/tiles/path-grass-edge.png",
           pathCorner: "assets/tiles/path-corner.png",
+          nightCobble: "assets/tiles/night-cobble-v1.png",
           waterPlain: "assets/tiles/water-plain.png",
           waterRipple: "assets/tiles/water-ripple.png",
           waterBank: "assets/tiles/water-bank.png",
-          waterLily: "assets/tiles/water-lily.png",
           fenceHorizontal: "assets/tiles/fence-horizontal.png",
           fenceVertical: "assets/tiles/fence-vertical.png",
           fenceCorner: "assets/tiles/fence-corner.png",
@@ -458,7 +464,9 @@
 
       const audio = {
         ctx: null,
+        muted: false,
         beep(type) {
+          if (this.muted) return;
           try {
             this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
             const now = this.ctx.currentTime;
@@ -536,7 +544,10 @@
         canvas.height = size.h;
         VIEW_W = canvas.width;
         VIEW_H = canvas.height;
-        camera.x = Math.max(0, Math.min(Math.max(0, WORLD_W - VIEW_W), player.x - VIEW_W / 2));
+        // Centre the portrait game world on wide desktop displays instead of pinning it to the left edge.
+        camera.x = WORLD_W <= VIEW_W
+          ? (WORLD_W - VIEW_W) / 2
+          : Math.max(0, Math.min(WORLD_W - VIEW_W, player.x - VIEW_W / 2));
         camera.y = Math.max(0, Math.min(Math.max(0, WORLD_H - VIEW_H), player.y - VIEW_H / 2));
       }
 
@@ -613,37 +624,30 @@
 
       function buildLevel2Map() {
         clearWorld();
-        fillTiles(8, 0, 4, MAP_H, "path");
-        fillTiles(0, 28, MAP_W, 4, "path");
-        fillTiles(3, 22, 14, 3, "path");
-        fillTiles(2, 14, 6, 3, "path");
-        fillTiles(12, 14, 6, 3, "path");
-        fillTiles(14, 24, 4, 3, "path");
-        fillTiles(3, 7, 14, 2, "path");
-        fillTiles(1, 5, 5, 5, "house");
-        fillTiles(14, 5, 4, 4, "house");
-        fillTiles(1, 18, 4, 3, "doghouse");
-        fillTiles(2, 11, 4, 2, "water");
-        fillTiles(2, 12, 4, 1, "bridge");
-        fillTiles(8, 2, 4, 3, "garden");
-        fillTiles(7, 2, 6, 1, "fence");
-        fillTiles(7, 5, 6, 1, "fence");
-        fillTiles(7, 2, 1, 4, "fence");
-        fillTiles(12, 2, 1, 4, "fence");
-        setTile(10, 5, "gate");
-        for (const p of [[6,5],[13,10],[5,20],[16,20],[3,25],[18,27]]) setTile(p[0], p[1], "bush");
-        for (const p of [[4,13],[5,13],[15,13],[16,13],[6,23],[13,23],[2,27],[17,27]]) setTile(p[0], p[1], "flowers");
-        for (const p of [[6,15],[14,15],[5,24],[17,25]]) setTile(p[0], p[1], "crate");
-        for (const p of [[3,17],[16,17],[13,25]]) setTile(p[0], p[1], "barrel");
-        tileRect(1, 5, 5, 5, "house");
-        tileRect(14, 5, 4, 4, "house");
-        tileRect(1, 18, 4, 3, "house");
-        tileRect(2, 11, 4, 1, "water");
-        tileRect(7, 2, 6, 1, "fence");
-        tileRect(7, 5, 3, 1, "fence");
-        tileRect(11, 5, 2, 1, "fence");
-        tileRect(7, 2, 1, 4, "fence");
-        tileRect(12, 2, 1, 4, "fence");
+        // Five connected garden rooms: gate, moon garden, greenhouse, brook, shed.
+        fillTiles(0, 0, MAP_W, MAP_H, "grass");
+        fillTiles(7, 27, 6, 5, "path");
+        fillTiles(4, 28, 3, 2, "dirt");
+        fillTiles(13, 28, 3, 2, "dirt");
+        fillTiles(7, 20, 6, 8, "garden");
+        fillTiles(5, 23, 10, 2, "path");
+        fillTiles(9, 20, 2, 8, "path");
+        fillTiles(6, 15, 8, 5, "path");
+        fillTiles(8, 12, 4, 4, "path");
+        // The brook reaches both map edges: Bruno must use the bridge, never walk around it.
+        fillTiles(0, 9, 9, 3, "water");
+        fillTiles(11, 9, 9, 3, "water");
+        fillTiles(9, 9, 2, 3, "moonBridge");
+        fillTiles(8, 5, 4, 5, "path");
+        fillTiles(5, 2, 10, 4, "garden");
+        for (const p of [[4,29],[5,28],[14,29],[15,28],[5,25],[14,25],[6,21],[13,21],[7,18],[13,17],[6,16],[14,15],[3,9],[16,9],[5,5],[14,4]]) setTile(p[0], p[1], "flowers");
+        // Curved hedge beds frame the moon garden but leave two routes around the fountain.
+        for (const p of [[5,22],[6,22],[13,22],[14,22],[5,26],[6,26],[13,26],[14,26],[7,20],[12,20],[7,27],[12,27],[4,17],[5,17],[14,18],[15,18],[4,4],[15,4]]) {
+          setTile(p[0], p[1], "bush"); tileRect(p[0], p[1], 1, 1, "hedge");
+        }
+        // The brook is impassable except at the visible wooden bridge.
+        tileRect(0, 9, 9, 3, "brook");
+        tileRect(11, 9, 9, 3, "brook");
       }
 
       function buildMap() {
@@ -731,17 +735,12 @@
         npcs.length = 0;
         interactables.length = 0;
         npcs.push(makeBella(10 * TILE + 14, 29 * TILE + 4));
-        const cat1Block = rect(9 * TILE + 11, 21 * TILE + 8, 42, 42, "cat_1");
-        const cat2Block = rect(5 * TILE + 11, 13 * TILE + 8, 42, 42, "cat_2");
-        const cat3Block = rect(9 * TILE + 11, 6 * TILE + 8, 42, 42, "cat_final");
+        const potBlock = rect(8 * TILE, 12 * TILE, 4 * TILE, TILE, "tipped_pot");
         interactables.push(
-          { id: "fish_treat", kind: "item", item: "fish", prompt: "Take", x: 4 * TILE + 16, y: 15 * TILE + 16, collected: false, text: "Bruno finds a suspiciously powerful fish smell." },
-          { id: "cat_1", kind: "cat", requires: "fish", blocker: cat1Block, prompt: "Distract", x: 10 * TILE + 16, y: 22 * TILE + 16, moved: false, text: "The cat accepts the fish with the dignity of a tiny park official." },
-          { id: "cardboard_box", kind: "item", item: "box", prompt: "Take", x: 15 * TILE + 16, y: 15 * TILE + 16, collected: false, text: "A perfect cardboard box. No cat can resist this architecture." },
-          { id: "cat_2", kind: "cat", requires: "box", blocker: cat2Block, prompt: "Distract", x: 6 * TILE + 16, y: 14 * TILE + 16, moved: false, text: "The cat relocates into the box and immediately claims ownership." },
-          { id: "bell_toy", kind: "item", item: "bell", prompt: "Take", x: 17 * TILE + 16, y: 25 * TILE + 16, collected: false, text: "A tiny bell toy. It jingles like forbidden knowledge." },
-          { id: "cat_final", kind: "cat", requires: "bell", blocker: cat3Block, prompt: "Distract", x: 10 * TILE + 16, y: 7 * TILE + 16, moved: false, text: "The final cat follows the bell, pretending this was its plan all along." },
-          { id: "cat_meeting", kind: "meeting", prompt: "Inspect", x: 10 * TILE + 16, y: 3 * TILE + 22, found: false, text: "The cats were not plotting. They were guarding shiny things from squirrels. Probably." }
+          { id: "scent_cross", kind: "scent", prompt: "Choose lavender trail", x: 10 * TILE + 16, y: 25 * TILE + 16, found: false, text: "Bruno separates the three smells: wet earth goes west, leather goes east — lavender curls north to the greenhouse." },
+          { id: "garden_note", kind: "note", prompt: "Examine note", x: 11 * TILE + 18, y: 17 * TILE + 12, found: false, text: "GARDENER'S NOTE: 'Moon charm impression by the shed. Please move the fallen pot before crossing.' A crescent impression is pressed into the paper." },
+          { id: "tipped_pot", kind: "pot", blocker: potBlock, prompt: "Push flowerpot", x: 10 * TILE + 16, y: 13 * TILE + 12, moved: false, text: "Bruno braces his paws and rolls the heavy pot aside. The path to the bridge is open." },
+          { id: "garden_keeper", kind: "meeting", prompt: "Talk to garden cat", x: 10 * TILE + 16, y: 4 * TILE + 20, found: false, text: "The friendly garden cat was guarding lost treasures for the gardener. The moon charm points to Bruno's next case — and he earns the Moon Garden case badge." }
         );
       }
 
@@ -762,22 +761,16 @@
       function questObjective() {
         if (currentLevel === 2) {
           const bella = npcs[0];
-          if (questState.state === "not_started") return { text: "Ask Bella about the cats", target: bella };
-          if (questState.state === "completed") return { text: "Cat conspiracy solved", target: interactables.find(i => i.id === "cat_meeting") || bella };
-          const fish = interactables.find(i => i.id === "fish_treat");
-          const cat1 = interactables.find(i => i.id === "cat_1");
-          const box = interactables.find(i => i.id === "cardboard_box");
-          const cat2 = interactables.find(i => i.id === "cat_2");
-          const bell = interactables.find(i => i.id === "bell_toy");
-          const finalCat = interactables.find(i => i.id === "cat_final");
-          const meeting = interactables.find(i => i.id === "cat_meeting");
-          if (!questState.hasFish) return { text: "Find the fish smell", target: fish };
-          if (!cat1.moved) return { text: "Distract the first cat", target: cat1 };
-          if (!questState.hasBox) return { text: "Find a cardboard box", target: box };
-          if (!cat2.moved) return { text: "Distract the box-loving cat", target: cat2 };
-          if (!questState.hasBell) return { text: "Find the bell toy", target: bell };
-          if (!finalCat.moved) return { text: "Distract the final cat", target: finalCat };
-          return { text: "Inspect the cat meeting", target: meeting };
+          const scent = interactables.find(i => i.id === "scent_cross");
+          const note = interactables.find(i => i.id === "garden_note");
+          const pot = interactables.find(i => i.id === "tipped_pot");
+          const keeper = interactables.find(i => i.id === "garden_keeper");
+          if (questState.state === "not_started") return { text: "Ask Bella about the moon charm", target: bella };
+          if (questState.state === "completed") return { text: "Moon Garden mystery solved", target: keeper || bella };
+          if (!scent.found) return { text: "Sniff out the right trail", target: scent };
+          if (!note.found) return { text: "Examine the greenhouse note", target: note };
+          if (!pot.moved) return { text: "Clear the fallen flowerpot", target: pot };
+          return { text: "Cross the bridge to the old shed", target: keeper };
         }
         if (questState.state === "not_started") return { text: "Find Bella in the park", target: npcs[0] };
         if (questState.state === "completed") return { text: "Quest complete", target: npcs[0] };
@@ -827,7 +820,7 @@
           npc.wait = 0.7;
           npc.patrolIndex = 0;
         }
-        questState.id = currentLevel === 2 ? "cat_conspiracy" : "lost_bone";
+        questState.id = currentLevel === 2 ? "moon_garden" : "lost_bone";
         questState.state = "not_started";
         questState.clues = new Set();
         questState.hasBone = false;
@@ -852,7 +845,7 @@
         levelMenu.classList.remove("show");
         hideDialog();
         if (currentLevel === 2) {
-          showDialog("Bella", "Bruno, the park has a cat problem. They are sitting on every important sniffing spot.", 4);
+          showDialog("Bella", "This moon charm belongs to the old garden behind the park. The gate is open, but the gardener's scents split ahead.", 4);
         } else {
           showDialog("Bruno", "Bella is waiting near the north path. Move with the joystick or WASD.", 3.8);
         }
@@ -885,9 +878,9 @@
           if (item.kind === "clue" && questState.clues.has(item.clueId)) continue;
           if (item.kind === "dig" && (questState.state !== "gate_open" || item.dug)) continue;
           if (item.kind === "gate" && questState.state === "gate_open") continue;
-          if (item.kind === "item" && item.collected) continue;
-          if (item.kind === "cat" && item.moved) continue;
-          if (item.kind === "meeting" && !interactables.find(i => i.id === "cat_final")?.moved) continue;
+          if ((item.kind === "scent" || item.kind === "note") && item.found) continue;
+          if (item.kind === "pot" && item.moved) continue;
+          if (item.kind === "meeting" && !interactables.find(i => i.id === "tipped_pot")?.moved) continue;
           options.push({ type: item.kind, entity: item, dist: distance(player, item) });
         }
         options.sort((a, b) => a.dist - b.dist);
@@ -904,10 +897,10 @@
         if (nearest.type === "npc") {
           if (currentLevel === 2) {
             if (questState.state === "not_started") {
-              questState.state = "need_fish";
-              showDialog("Bella", "They look organized. Start with fish smell, then boxes. Cats respect procedures.", 3.8);
+              questState.state = "trail_started";
+              showDialog("Bella", "At the crossing Bruno can smell wet earth, lavender, and familiar leather. Use SNIFF first: only the true trail will linger.", 4);
             } else {
-              showDialog("Bella", "No fighting, Bruno. Outsmart them with smells and suspiciously good objects.", 3.2);
+              showDialog("Bella", "The moon charm's trail is still warm. Follow the small clues, Bruno.", 3.2);
             }
             return;
           }
@@ -944,37 +937,33 @@
         if (nearest.type === "gate") {
           showDialog("Gate", entity.text);
         }
-        if (nearest.type === "item") {
-          entity.collected = true;
-          if (entity.item === "fish") {
-            questState.hasFish = true;
-            questState.state = "has_fish";
+        if (nearest.type === "scent") {
+          if (questState.state === "trail_started" && sniffTimer <= 0) {
+            showDialog("Bruno", "The scents overlap. Sniff here to make the right one shimmer.", 3);
+            return;
           }
-          if (entity.item === "box") {
-            questState.hasBox = true;
-            questState.state = "has_box";
-          }
-          if (entity.item === "bell") {
-            questState.hasBell = true;
-            questState.state = "has_bell";
-          }
+          entity.found = true;
+          questState.state = "trail_chosen";
           showDialog("Bruno", entity.text);
           spawnSparkles(entity.x, entity.y, 16, COLORS.scent);
           return;
         }
-        if (nearest.type === "cat") {
-          const hasRequired = entity.requires === "fish" ? questState.hasFish : entity.requires === "box" ? questState.hasBox : questState.hasBell;
-          if (!hasRequired) {
-            const hint = entity.requires === "fish" ? "This cat smells like it wants fish." : entity.requires === "box" ? "This cat is clearly thinking about cardboard." : "This one needs something that jingles.";
-            showDialog("Cat", "Miau. " + hint, 3);
+        if (nearest.type === "note") {
+          entity.found = true;
+          questState.state = "note_examined";
+          showDialog("Bruno", entity.text, 4);
+          spawnSparkles(entity.x, entity.y, 14, "#f7df83");
+          return;
+        }
+        if (nearest.type === "pot") {
+          if (!interactables.find(i => i.id === "garden_note")?.found) {
+            showDialog("Bruno", "The pot is wedged tight. The greenhouse may have a clue.", 3);
             return;
           }
           entity.moved = true;
           if (entity.blocker) entity.blocker.open = true;
-          if (entity.id === "cat_1") questState.state = "cat_1_moved";
-          if (entity.id === "cat_2") questState.state = "cat_2_moved";
-          if (entity.id === "cat_final") questState.state = "final_cat_moved";
-          showDialog("Cat", entity.text, 3.2);
+          questState.state = "bridge_cleared";
+          showDialog("Bruno", entity.text, 3.2);
           spawnSparkles(entity.x, entity.y, 18, "#f7df83");
           return;
         }
@@ -983,7 +972,7 @@
           questState.state = "completed";
           showDialog("Bruno", entity.text, 3.2);
           audio.beep("complete");
-          setTimeout(() => showComplete("Cat Conspiracy Solved", "The cats were dramatic, not dangerous. Bruno remains suspicious.", "Play Again"), 800);
+          setTimeout(() => showComplete("Moon Garden Mystery Solved", "Bruno earns the Moon Garden case badge. The moon charm marks the next case.", "Play Again"), 800);
         }
       }
 
@@ -1119,7 +1108,8 @@
         }
         nearest = getNearestInteractable();
         promptEl.textContent = nearest ? nearest.entity.prompt : "";
-        promptEl.classList.toggle("show", !!nearest);
+        // The floating action prompt must never sit on top of active dialogue.
+        promptEl.classList.toggle("show", !!nearest && dialogTimer <= 0);
         useBtn.textContent = nearest ? nearest.entity.prompt.toUpperCase() : "USE";
         questText.textContent = questObjective().text;
         sniffTimer = Math.max(0, sniffTimer - dt);
@@ -1167,6 +1157,22 @@
         const x = tx * TILE - camera.x;
         const y = ty * TILE - camera.y;
         if (x < -TILE || y < -TILE || x > VIEW_W || y > VIEW_H) return;
+        if (type === "wall") {
+          drawAlleyWall(tx, ty, x, y);
+          return;
+        }
+        if (type === "marketWall") {
+          drawAlleyWall(tx, ty, x, y);
+          return;
+        }
+        if (type === "market") {
+          drawNightCobble(tx, ty, x, y);
+          return;
+        }
+        if (type === "pavement") {
+          drawPavementTile(tx, ty, x, y);
+          return;
+        }
         if (type === "grass") {
           const key = tileVariant(tx, ty, ["grassPlain", "grassPlain", "grassPlain", "grassPlain", "grassBlades"]);
           if (drawTileImage(key, x, y)) return;
@@ -1174,22 +1180,21 @@
           const key = tileVariant(tx, ty, ["pathPlain", "pathPlain", "pathPlain", "pathPebbles"]);
           if (drawTileImage(key, x, y)) return;
         } else if (type === "water") {
-          const waterFrame = Math.floor(performance.now() / 620 + tx * 0.7 + ty * 0.4) % 5;
-          const key = waterFrame === 1 ? "waterRipple" : waterFrame === 3 && (tx + ty) % 3 === 0 ? "waterLily" : "waterPlain";
+          // Water details are anchored to the map. Nothing botanical flickers in and out of existence.
+          const key = (tx * 3 + ty * 5) % 7 === 0 ? "waterRipple" : "waterPlain";
           if (drawTileImage(key, x, y)) {
             drawWaterMotion(tx, ty, x, y);
-            ctx.strokeStyle = "rgba(40, 116, 132, 0.38)";
-            ctx.lineWidth = 1;
             const n = {
               up: ty > 0 ? mapTiles[ty - 1]?.[tx] : "",
               down: ty < MAP_H - 1 ? mapTiles[ty + 1]?.[tx] : "",
               left: tx > 0 ? mapTiles[ty]?.[tx - 1] : "",
               right: tx < MAP_W - 1 ? mapTiles[ty]?.[tx + 1] : ""
             };
-            if (n.up !== "water" && n.up !== "bridge") { ctx.beginPath(); ctx.moveTo(x, y + 0.5); ctx.lineTo(x + TILE, y + 0.5); ctx.stroke(); }
-            if (n.down !== "water" && n.down !== "bridge") { ctx.beginPath(); ctx.moveTo(x, y + TILE - 0.5); ctx.lineTo(x + TILE, y + TILE - 0.5); ctx.stroke(); }
-            if (n.left !== "water" && n.left !== "bridge") { ctx.beginPath(); ctx.moveTo(x + 0.5, y); ctx.lineTo(x + 0.5, y + TILE); ctx.stroke(); }
-            if (n.right !== "water" && n.right !== "bridge") { ctx.beginPath(); ctx.moveTo(x + TILE - 0.5, y); ctx.lineTo(x + TILE - 0.5, y + TILE); ctx.stroke(); }
+            const isWaterway = v => v === "water" || v === "bridge" || v === "moonBridge";
+            if (!isWaterway(n.up)) drawWaterBankEdge(x, y, "up");
+            if (!isWaterway(n.down)) drawWaterBankEdge(x, y, "down");
+            if (!isWaterway(n.left)) drawWaterBankEdge(x, y, "left");
+            if (!isWaterway(n.right)) drawWaterBankEdge(x, y, "right");
             return;
           }
         } else if (type === "bridge") {
@@ -1200,6 +1205,30 @@
           ctx.strokeStyle = "rgba(86, 52, 28, 0.55)";
           ctx.lineWidth = 1;
           ctx.strokeRect(x, y + 4.5, TILE, 23);
+          return;
+        } else if (type === "moonBridge") {
+          // A north-south bridge: horizontal planks and rails running with Bruno's path.
+          ctx.fillStyle = "#815535";
+          ctx.fillRect(x, y, TILE, TILE);
+          ctx.fillStyle = "#c99155";
+          ctx.fillRect(x + 2, y, TILE - 4, TILE);
+          ctx.strokeStyle = "rgba(87, 52, 30, 0.62)";
+          ctx.lineWidth = 1;
+          for (let py = 4; py < TILE; py += 8) {
+            ctx.beginPath();
+            ctx.moveTo(x + 2, y + py + 0.5);
+            ctx.lineTo(x + TILE - 2, y + py + 0.5);
+            ctx.stroke();
+          }
+          const railX = tx === 9 ? x + 3 : x + TILE - 3;
+          ctx.strokeStyle = "#68442f";
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(railX, y - 2);
+          ctx.lineTo(railX, y + TILE + 2);
+          ctx.stroke();
+          ctx.fillStyle = "#a66d3d";
+          if (ty === 9 || ty === 11) ctx.fillRect(railX - 3, y + (ty === 9 ? 1 : TILE - 7), 6, 6);
           return;
         } else if (type === "fence") {
           if (drawTileImage("grassPlain", x, y)) return;
@@ -1359,6 +1388,59 @@
         return keys[n % keys.length];
       }
 
+      function drawAlleyWall(tx, ty, x, y) {
+        const shade = (tx * 11 + ty * 7) % 4;
+        ctx.fillStyle = shade === 0 ? "#835c43" : shade === 1 ? "#765039" : shade === 2 ? "#936848" : "#6f4934";
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.fillStyle = "rgba(54, 35, 26, 0.32)";
+        ctx.fillRect(x, y + TILE - 5, TILE, 5);
+        ctx.strokeStyle = "rgba(61, 40, 29, 0.45)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 0.5);
+        ctx.lineTo(x + TILE, y + 0.5);
+        ctx.moveTo(x + 0.5, y);
+        ctx.lineTo(x + 0.5, y + TILE);
+        ctx.stroke();
+        if ((tx + ty) % 5 === 0) {
+          ctx.fillStyle = "rgba(255, 232, 160, 0.18)";
+          ctx.fillRect(x + 6, y + 8, 10, 3);
+        }
+      }
+
+      function drawPavementTile(tx, ty, x, y) {
+        const shade = (tx * 17 + ty * 13) % 5;
+        ctx.fillStyle = shade === 0 ? "#d7c08d" : shade === 1 ? "#cdb27d" : shade === 2 ? "#e0c995" : shade === 3 ? "#c6a976" : "#d2b984";
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.strokeStyle = "rgba(116, 82, 50, 0.18)";
+        ctx.lineWidth = 1;
+        const split = (tx + ty) % 2 ? 15 : 18;
+        ctx.beginPath();
+        ctx.moveTo(x, y + split + 0.5);
+        ctx.lineTo(x + TILE, y + split + 0.5);
+        ctx.moveTo(x + 15.5, y);
+        ctx.lineTo(x + 15.5, y + split);
+        ctx.moveTo(x + 24.5, y + split);
+        ctx.lineTo(x + 24.5, y + TILE);
+        ctx.stroke();
+        if ((tx * 5 + ty * 3) % 7 === 0) {
+          ctx.fillStyle = "rgba(93, 67, 45, 0.16)";
+          ctx.fillRect(x + 8, y + 10, 4, 2);
+          ctx.fillRect(x + 20, y + 23, 5, 2);
+        }
+      }
+
+      function drawNightCobble(tx, ty, x, y) {
+        const img = assets.images.nightCobble;
+        if (!img || !img.ready) { drawPavementTile(tx, ty, x, y); return; }
+        const sample = 96;
+        const maxX = Math.max(1, img.naturalWidth - sample);
+        const maxY = Math.max(1, img.naturalHeight - sample);
+        const sx = Math.abs((tx * 97 + ty * 43) % maxX);
+        const sy = Math.abs((tx * 53 + ty * 89) % maxY);
+        ctx.drawImage(img, sx, sy, sample, sample, Math.round(x), Math.round(y), TILE, TILE);
+      }
+
       function drawWaterMotion(tx, ty, x, y) {
         const t = performance.now() / 420 + tx * 0.8 + ty * 0.5;
         ctx.save();
@@ -1373,6 +1455,29 @@
           ctx.quadraticCurveTo(x + 25, yy + 3, x + 30, yy);
           ctx.stroke();
         }
+        ctx.restore();
+      }
+
+      function drawWaterBankEdge(x, y, edge) {
+        const img = assets.images.waterBank;
+        if (img?.ready) {
+          ctx.save();
+          ctx.translate(x + TILE / 2, y + TILE / 2);
+          const turns = edge === "up" ? 0 : edge === "right" ? Math.PI / 2 : edge === "down" ? Math.PI : -Math.PI / 2;
+          ctx.rotate(turns);
+          ctx.drawImage(img, -TILE / 2, -TILE / 2, TILE, TILE);
+          ctx.restore();
+          return;
+        }
+        ctx.save();
+        ctx.strokeStyle = "rgba(214, 236, 189, 0.82)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        if (edge === "up") { ctx.moveTo(x, y + 2); ctx.lineTo(x + TILE, y + 2); }
+        if (edge === "down") { ctx.moveTo(x, y + TILE - 2); ctx.lineTo(x + TILE, y + TILE - 2); }
+        if (edge === "left") { ctx.moveTo(x + 2, y); ctx.lineTo(x + 2, y + TILE); }
+        if (edge === "right") { ctx.moveTo(x + TILE - 2, y); ctx.lineTo(x + TILE - 2, y + TILE); }
+        ctx.stroke();
         ctx.restore();
       }
 
@@ -1590,21 +1695,28 @@
       }
 
       function drawLevel2Interactable(item) {
-        if ((item.kind === "item" && item.collected) || (item.kind === "cat" && item.moved)) return;
-        if (item.kind === "meeting" && !interactables.find(i => i.id === "cat_final")?.moved) return;
+        if ((item.kind === "scent" || item.kind === "note") && item.found) return;
+        if (item.kind === "pot" && item.moved) return;
+        if (item.kind === "meeting" && !interactables.find(i => i.id === "tipped_pot")?.moved) return;
         const s = worldToScreen(item.x, item.y);
-        if (item.kind === "item") {
-          const asset = item.item === "fish" ? "fishTreat" : item.item === "box" ? "cardboardBox" : "bellToy";
-          const size = item.item === "box" ? [46, 42] : item.item === "fish" ? [42, 34] : [38, 38];
+        if (item.kind === "scent") {
           drawAmbientScent(item, s);
-          if (drawPropAsset(asset, s.x, s.y, size[0], size[1], { shadowY: 10 })) return;
-          drawFallbackItem(item.item, s.x, s.y);
+          const glow = sniffTimer > 0 ? 1 : 0.84;
+          if (drawPropAsset("moonGardenLavenderTrail", s.x, s.y + 2, 58, 58, { shadow: false, alpha: glow })) return;
           return;
         }
-        if (item.kind === "cat") {
-          const bob = Math.sin(performance.now() / 360 + item.x * 0.03) * 1.2;
-          if (drawPropAsset("catBlocker", s.x, s.y + bob, 48, 48, { shadowY: 14 })) return;
-          drawFallbackCat(s.x, s.y + bob);
+        if (item.kind === "note") {
+          drawShadow(s.x, s.y + 10, 15, 5);
+          ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(-0.16);
+          ctx.fillStyle = "#fff0bb"; ctx.fillRect(-14, -11, 28, 22);
+          ctx.strokeStyle = "#9b7040"; ctx.strokeRect(-14, -11, 28, 22);
+          ctx.strokeStyle = "#b37d55"; ctx.lineWidth = 1;
+          for (let y = -5; y < 7; y += 4) { ctx.beginPath(); ctx.moveTo(-9, y); ctx.lineTo(8, y); ctx.stroke(); }
+          ctx.restore();
+          return;
+        }
+        if (item.kind === "pot") {
+          if (drawPropAsset("moonGardenTippedPot", s.x, s.y + 2, 64, 58, { shadowY: 12 })) return;
           return;
         }
         if (item.kind === "meeting") {
@@ -1686,25 +1798,23 @@
 
       function drawDecorProps() {
         const props = currentLevel === 2 ? [
-          { key: "cottageProp", x: 3.4 * TILE, y: 7.2 * TILE, w: 82, h: 72 },
-          { key: "cottageProp", x: 16.0 * TILE, y: 6.8 * TILE, w: 76, h: 68 },
-          { key: "doghouseProp", x: 3.0 * TILE, y: 20.0 * TILE, w: 66, h: 58 },
-          { key: "treeCanopy", x: 2.0 * TILE, y: 25.0 * TILE, w: 62, h: 66 },
-          { key: "treeCanopy", x: 18.2 * TILE, y: 19.2 * TILE, w: 56, h: 60 },
-          { key: "treeCanopy", x: 6.7 * TILE, y: 5.0 * TILE, w: 54, h: 58 },
-          { key: "parkBench", x: 13.0 * TILE, y: 23.5 * TILE, w: 64, h: 43 },
-          { key: "pondReeds", x: 3.3 * TILE, y: 11.2 * TILE, w: 40, h: 38 },
-          { key: "bridgeRail", x: 3.9 * TILE, y: 12.45 * TILE, w: 106, h: 28, shadow: false },
-          { key: "pathStones", x: 6.5 * TILE, y: 23.3 * TILE, w: 44, h: 35 },
-          { key: "pathStones", x: 13.9 * TILE, y: 16.5 * TILE, w: 42, h: 33 },
-          { key: "grassTuft", x: 6.2 * TILE, y: 10.2 * TILE, w: 42, h: 27 },
-          { key: "grassTuft", x: 14.4 * TILE, y: 10.0 * TILE, w: 42, h: 27 },
-          { key: "lanternPost", x: 7.1 * TILE, y: 22.0 * TILE, w: 36, h: 50 },
-          { key: "lanternPost", x: 12.8 * TILE, y: 7.2 * TILE, w: 36, h: 50 },
-          { key: "flowerBushProp", x: 4.4 * TILE, y: 13.2 * TILE, w: 46, h: 29 },
-          { key: "flowerBushProp", x: 15.8 * TILE, y: 13.2 * TILE, w: 46, h: 29 },
-          { key: "crateBarrelProp", x: 6.0 * TILE, y: 15.5 * TILE, w: 52, h: 35 },
-          { key: "crateBarrelProp", x: 16.2 * TILE, y: 17.3 * TILE, w: 52, h: 35 }
+          { key: "moonGardenGreenhouse", x: 10 * TILE, y: 16.2 * TILE, w: 196, h: 182 },
+          { key: "moonGardenShed", x: 10 * TILE, y: 3.8 * TILE, w: 174, h: 164 },
+          { key: "treeCanopy", x: 2.3 * TILE, y: 25.2 * TILE, w: 64, h: 66 },
+          { key: "treeCanopy", x: 17.7 * TILE, y: 25.0 * TILE, w: 64, h: 66 },
+          { key: "flowerBushProp", x: 5.1 * TILE, y: 29.0 * TILE, w: 52, h: 34 },
+          { key: "flowerBushProp", x: 14.9 * TILE, y: 29.0 * TILE, w: 52, h: 34 },
+          { key: "flowerBushProp", x: 5.2 * TILE, y: 20.5 * TILE, w: 50, h: 32 },
+          { key: "flowerBushProp", x: 14.7 * TILE, y: 20.4 * TILE, w: 50, h: 32 },
+          // Fixed creek-bank clusters make the water feel rooted in the garden.
+          { key: "pondReeds", x: 2.0 * TILE, y: 9.15 * TILE, w: 42, h: 36, shadow: false },
+          { key: "pondReeds", x: 17.9 * TILE, y: 9.15 * TILE, w: 42, h: 36, shadow: false },
+          { key: "pondReeds", x: 4.3 * TILE, y: 11.85 * TILE, w: 34, h: 28, shadow: false },
+          { key: "pondReeds", x: 15.7 * TILE, y: 11.85 * TILE, w: 34, h: 28, shadow: false },
+          { key: "lanternPost", x: 7.2 * TILE, y: 26.0 * TILE, w: 36, h: 50 },
+          { key: "lanternPost", x: 12.9 * TILE, y: 21.0 * TILE, w: 36, h: 50 },
+          { key: "lanternPost", x: 6.8 * TILE, y: 15.9 * TILE, w: 36, h: 50 },
+          { key: "lanternPost", x: 13.1 * TILE, y: 9.0 * TILE, w: 36, h: 50 }
         ] : [
           { key: "cottageProp", x: 3.5 * TILE, y: 4.0 * TILE, w: 86, h: 76 },
           { key: "cottageProp", x: 15.5 * TILE, y: 5.0 * TILE, w: 86, h: 76 },
@@ -1734,9 +1844,11 @@
         for (const p of props) {
           const sway = p.key === "treeCanopy" ? Math.sin(performance.now() / 900 + p.x * 0.03) * 1.4 : 0;
           const s = worldToScreen(p.x + sway, p.y + (p.key === "treeCanopy" ? Math.sin(performance.now() / 1200 + p.y * 0.02) * 0.8 : 0));
-          drawPropAsset(p.key, s.x, s.y, p.w, p.h, { shadow: p.shadow });
+          drawPropAsset(p.key, s.x, s.y, p.w, p.h, { shadow: p.shadow, shadowY: p.shadowY });
           if (p.key === "lanternPost") drawLanternGlow(s.x, s.y, p.w, p.h);
         }
+
+        if (currentLevel === 2) drawMoonGardenLife();
 
         if (currentLevel === 1) drawGardenFence();
 
@@ -1744,9 +1856,85 @@
           const gate = worldToScreen(15 * TILE + 16, 22 * TILE + 14);
           const gateKey = questState.state === "gate_open" || questState.state === "bone_found" || questState.state === "completed" ? "openGate" : "closedGate";
           drawPropAsset(gateKey, gate.x, gate.y - 4, gateKey === "openGate" ? 58 : 64, 45);
-        } else {
-          const gate = worldToScreen(10 * TILE + 16, 5 * TILE + 14);
-          drawPropAsset("openGate", gate.x, gate.y - 4, 54, 42);
+        }
+      }
+
+      function drawLevel2GateFrames() {
+        const gates = [
+          { y: 23 * TILE, label: "fish" },
+          { y: 17 * TILE, label: "box" },
+          { y: 8 * TILE, label: "bell" }
+        ];
+        for (const g of gates) {
+          const left = worldToScreen(8 * TILE, g.y + 16);
+          const right = worldToScreen(12 * TILE, g.y + 16);
+          ctx.save();
+          ctx.strokeStyle = "#68442f";
+          ctx.lineWidth = 4;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(left.x - 4, left.y - 12);
+          ctx.lineTo(left.x - 4, left.y + 12);
+          ctx.moveTo(right.x + 4, right.y - 12);
+          ctx.lineTo(right.x + 4, right.y + 12);
+          ctx.stroke();
+          ctx.strokeStyle = "rgba(255, 232, 160, 0.42)";
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(left.x - 16, left.y - 10 + i * 8);
+            ctx.lineTo(left.x - 7, left.y - 14 + i * 8);
+            ctx.moveTo(right.x + 7, right.y - 10 + i * 8);
+            ctx.lineTo(right.x + 16, right.y - 14 + i * 8);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawMoonGardenLife() {
+        const t = performance.now() / 1000;
+        // A tiny scarfed snail explores the herb beds in a deliberately slow, readable loop.
+        const snail = worldToScreen((4.7 + Math.sin(t * 0.42) * 0.72) * TILE, 28.65 * TILE);
+        ctx.save();
+        ctx.translate(snail.x, snail.y);
+        ctx.fillStyle = "rgba(44, 35, 28, 0.22)";
+        ctx.beginPath(); ctx.ellipse(0, 8, 11, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#b87956";
+        ctx.beginPath(); ctx.arc(-3, 1, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#754a35"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(-3, 1, 4, 0.2, Math.PI * 1.8); ctx.stroke();
+        ctx.fillStyle = "#ddaf72"; ctx.fillRect(3, 3, 9, 5);
+        ctx.strokeStyle = "#694636"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(10, 3); ctx.lineTo(13, -2 + Math.sin(t * 2) * 1.5); ctx.moveTo(10, 6); ctx.lineTo(14, 2 + Math.sin(t * 2 + 1) * 1.5); ctx.stroke();
+        ctx.fillStyle = "#6da7cc"; ctx.fillRect(5, 1, 4, 5);
+        ctx.restore();
+
+        // A small creek frog blinks and makes an occasional ripple; it is decoration, never a quest marker.
+        const frog = worldToScreen(15.1 * TILE, 8.72 * TILE);
+        const hop = Math.max(0, Math.sin(t * 1.55 - 0.7)) * 3;
+        ctx.save(); ctx.translate(frog.x, frog.y - hop);
+        ctx.fillStyle = "rgba(44, 35, 28, 0.2)"; ctx.beginPath(); ctx.ellipse(0, 8 + hop, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#77a95d"; ctx.beginPath(); ctx.ellipse(0, 1, 10, 7, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#97c973"; ctx.beginPath(); ctx.arc(-5, -4, 4, 0, Math.PI * 2); ctx.arc(5, -4, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = Math.sin(t * 0.8) > 0.9 ? "#31513b" : "#f7ebc5";
+        ctx.fillRect(-6, -5, 2, 2); ctx.fillRect(4, -5, 2, 2);
+        ctx.restore();
+        if (Math.sin(t * 1.55 - 0.7) > 0.93) {
+          ctx.strokeStyle = "rgba(193, 231, 239, 0.65)"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.ellipse(frog.x, frog.y + 11, 14, 4, 0, 0, Math.PI * 2); ctx.stroke();
+        }
+
+        // A handful of fireflies ties the evening light to the existing moon lanterns.
+        const fireflies = [[7.7, 25.0], [12.8, 20.0], [6.5, 15.0], [13.5, 8.4]];
+        for (let i = 0; i < fireflies.length; i++) {
+          const [gx, gy] = fireflies[i];
+          const s = worldToScreen((gx + Math.sin(t * 1.35 + i) * 0.22) * TILE, (gy + Math.cos(t * 1.8 + i * 2) * 0.17) * TILE);
+          const a = 0.38 + (Math.sin(t * 3 + i) + 1) * 0.23;
+          ctx.fillStyle = "rgba(255, 232, 128, " + a + ")";
+          ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#fff3a8";
+          ctx.beginPath(); ctx.arc(s.x, s.y, 1.7, 0, Math.PI * 2); ctx.fill();
         }
       }
 
@@ -1844,6 +2032,18 @@
         }
       }
 
+      function drawWorldGrade() {
+        ctx.save();
+        if (currentLevel === 2) {
+          // Moonlight comes from the lanterns and water, not a flat dark filter.
+          ctx.fillStyle = "rgba(32, 50, 92, 0.08)";
+        } else {
+          ctx.fillStyle = "rgba(255, 196, 106, 0.035)";
+        }
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+        ctx.restore();
+      }
+
       function drawWorld() {
         ctx.clearRect(0, 0, VIEW_W, VIEW_H);
         for (let y = 0; y < MAP_H; y++) {
@@ -1869,6 +2069,7 @@
         } else {
           for (const item of interactables) drawLevel2Interactable(item);
         }
+        drawWorldGrade();
         const actors = [
           ...npcs.map(n => ({ y: n.y, draw: () => {
             const s = worldToScreen(n.x, n.y);
@@ -1946,6 +2147,14 @@
         fullscreenBtn.title = fullscreenElement() ? "Exit fullscreen" : "Fullscreen";
       }
 
+      function toggleSfx(ev) {
+        ev.preventDefault();
+        audio.muted = !audio.muted;
+        sfxBtn.textContent = audio.muted ? "OFF" : "SFX";
+        sfxBtn.title = audio.muted ? "Sound off" : "Sound on";
+        sfxBtn.setAttribute("aria-label", audio.muted ? "Enable sound" : "Mute sound");
+      }
+
       async function toggleFullscreen(ev) {
         ev.preventDefault();
         const root = document.documentElement;
@@ -2014,11 +2223,14 @@
               "waterPlain",
               "waterRipple",
               "waterBank",
-              "waterLily",
               "fenceHorizontal",
               "fenceVertical",
               "fenceCorner",
-              "fencePost"
+              "fencePost",
+              "moonGardenGreenhouse",
+              "moonGardenShed",
+              "moonGardenLavenderTrail",
+              "moonGardenTippedPot"
             ].every(key => !!assets.images[key]?.ready)
           }
         }),
@@ -2028,6 +2240,7 @@
       };
 
       fullscreenBtn.addEventListener("pointerdown", toggleFullscreen);
+      sfxBtn.addEventListener("pointerdown", toggleSfx);
       menuBtn.addEventListener("pointerdown", toggleLevelMenu);
       levelMenu.addEventListener("pointerdown", selectLevel);
       document.addEventListener("fullscreenchange", updateFullscreenButton);
